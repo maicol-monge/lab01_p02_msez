@@ -1,0 +1,1 @@
+<img src="img/404.png" width="100%" alt="">
