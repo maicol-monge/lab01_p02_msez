@@ -11,13 +11,47 @@
                     <form action="<?= RUTA; ?>mascota/update/<?php echo $mascota->getIdmascota(); ?>" method="post">
                         <div class="mb-4">
                             <label for="id_tipo" class="form-label">Tipo de Mascota:</label>
+                            <div class="input-group mb-2">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="buscarTipo"
+                                    placeholder="Buscar tipo de mascota...">
+                            </div>
                             <select id="id_tipo" name="id_tipo" class="form-select" required>
                                 <?php foreach ($tipos as $t): ?>
-                                    <option value="<?= $t->getIdTipo(); ?>" <?= ($t->getIdTipo() == $mascota->getIdTipo()) ? 'selected' : ''; ?>>
+                                    <option value="<?= $t->getIdTipo(); ?>"
+                                        data-nombre="<?= htmlspecialchars(strtolower($t->getNombre())); ?>"
+                                        data-descripcion="<?= htmlspecialchars(strtolower($t->getDescripcion() ?? '')); ?>"
+                                        <?= ($t->getIdTipo() == $mascota->getIdTipo()) ? 'selected' : ''; ?>>
                                         <?= htmlspecialchars($t->getNombre()); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
+                            <div class="form-text">
+                                Puedes buscar por nombre o descripción del tipo de mascota
+                            </div>
+
+                            <script>
+                                document.addEventListener('DOMContentLoaded', function () {
+                                    const buscarInput = document.getElementById('buscarTipo');
+                                    const selectTipo = document.getElementById('id_tipo');
+                                    const opciones = Array.from(selectTipo.options);
+
+                                    buscarInput.addEventListener('input', function (e) {
+                                        const busqueda = e.target.value.toLowerCase().trim();
+
+                                        opciones.forEach(opcion => {
+                                            const nombre = opcion.getAttribute('data-nombre') || '';
+                                            const descripcion = opcion.getAttribute('data-descripcion') || '';
+                                            const coincide = nombre.includes(busqueda) ||
+                                                descripcion.includes(busqueda);
+
+                                            opcion.style.display = coincide ? '' : 'none';
+                                        });
+                                    });
+                                });
+                            </script>
                         </div>
 
                         <div class="mb-4">
