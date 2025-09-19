@@ -4,7 +4,7 @@ class CNpdo {
     private $host = "localhost";
     private $usuario = "root";  
     private $password = "";
-    private $baseDatos = "mascotas_ms_zr";
+    private $baseDatos = "mascotas_ms_zr1";
     private $charset = "utf8mb4";
     private $opciones = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,

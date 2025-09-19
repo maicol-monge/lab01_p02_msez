@@ -23,7 +23,10 @@
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fas fa-phone"></i></span>
                                 <input type="tel" class="form-control" id="telefono" name="telefono"
-                                    placeholder="Ingresa tu número de teléfono">
+                                    placeholder="Ingresa tu número de teléfono" required>
+                                <div class="invalid-feedback">
+                                    Por favor ingresa un número de teléfono de contacto.
+                                </div>
                             </div>
                             <div class="form-text">Nos comunicaremos contigo para coordinar la adopción</div>
                         </div>
@@ -37,7 +40,7 @@
                                 <input type="text" class="form-control" id="buscarMascota"
                                     placeholder="Buscar mascota por nombre o tipo...">
                             </div>
-                            <select id="id_mascota" name="id_mascota" class="form-select">
+                            <select id="id_mascota" name="id_mascota" class="form-select" required>
                                 <option value="">Selecciona una mascota</option>
                                 <?php foreach ($mascotas as $m): ?>
                                     <?php
@@ -51,15 +54,39 @@
                                     <option value="<?= $m['id_mascota']; ?>"
                                         data-nombre="<?= htmlspecialchars(strtolower($m['nombre'] ?? '')); ?>"
                                         data-tipo="<?= htmlspecialchars(strtolower($m['tipo_nombre'] ?? '')); ?>"
-                                        data-id="<?= $m['id_mascota']; ?>">
+                                        data-id="<?= $m['id_mascota']; ?>" <?= $mascota_preseleccionada == $m['id_mascota'] ? 'selected' : ''; ?>>
                                         <?= htmlspecialchars($label); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
                             <div class="form-text">Puedes buscar y seleccionar la mascota por nombre o tipo</div>
+                            <div class="invalid-feedback">
+                                Por favor selecciona una mascota para adoptar.
+                            </div>
                         </div>
 
                         <script>
+                            // Example starter JavaScript for disabling form submissions if there are invalid fields
+                            (function () {
+                                'use strict'
+
+                                // Fetch all the forms we want to apply custom Bootstrap validation styles to
+                                var forms = document.querySelectorAll('.needs-validation')
+
+                                // Loop over them and prevent submission
+                                Array.prototype.slice.call(forms)
+                                    .forEach(function (form) {
+                                        form.addEventListener('submit', function (event) {
+                                            if (!form.checkValidity()) {
+                                                event.preventDefault()
+                                                event.stopPropagation()
+                                            }
+
+                                            form.classList.add('was-validated')
+                                        }, false)
+                                    })
+                            })()
+
                             document.addEventListener('DOMContentLoaded', function () {
                                 const buscarInput = document.getElementById('buscarMascota');
                                 const selectMascota = document.getElementById('id_mascota');

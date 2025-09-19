@@ -21,6 +21,7 @@ class AdoptanteController
     public function create()
     {
         $mascotas = $this->model->mascotasDisponibles();
+        $mascota_preseleccionada = isset($_GET['id_mascota']) ? $_GET['id_mascota'] : '';
         include 'vistas/adoptante/create.php';
     }
     public function store()

@@ -25,17 +25,44 @@
 
                         <div class="mb-4">
                             <label for="descripcion" class="form-label">Descripción:</label>
-                            <div class="input-group">
+                            <div class="input-group has-validation">
                                 <span class="input-group-text">
                                     <i class="fas fa-align-left"></i>
                                 </span>
                                 <textarea class="form-control" id="descripcion" name="descripcion" rows="4"
-                                    placeholder="Describe las características generales de esta categoría..."></textarea>
+                                    placeholder="Describe las características generales de esta categoría..."
+                                    required></textarea>
+                                <div class="invalid-feedback">
+                                    Por favor ingresa una descripción para la categoría.
+                                </div>
                             </div>
                             <div class="form-text">
                                 Agrega información útil sobre este tipo de mascota
                             </div>
                         </div>
+
+                        <script>
+                            // Example starter JavaScript for disabling form submissions if there are invalid fields
+                            (function () {
+                                'use strict'
+
+                                // Fetch all the forms we want to apply custom Bootstrap validation styles to
+                                var forms = document.querySelectorAll('.needs-validation')
+
+                                // Loop over them and prevent submission
+                                Array.prototype.slice.call(forms)
+                                    .forEach(function (form) {
+                                        form.addEventListener('submit', function (event) {
+                                            if (!form.checkValidity()) {
+                                                event.preventDefault()
+                                                event.stopPropagation()
+                                            }
+
+                                            form.classList.add('was-validated')
+                                        }, false)
+                                    })
+                            })()
+                        </script>
 
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle me-2"></i>
