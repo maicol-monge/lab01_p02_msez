@@ -62,42 +62,80 @@
         </div>
     </div>
 
-    <!-- Distribución por Tipo de Mascota -->
+    <!-- Distribución de Mascotas -->
     <div class="row mb-4">
         <div class="col-md-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <h4 class="card-title mb-4">
                         <i class="fas fa-chart-pie text-primary me-2"></i>
-                        Distribución por Tipo de Mascota
+                        Distribución de Mascotas
                     </h4>
+
+                    <!-- Filtros -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <select id="filtroTipo" class="form-select">
+                                <option value="todos">Todos los tipos</option>
+                                <?php
+                                $tipos_unicos = array_unique(array_column($stats['distribucion'], 'tipo_nombre'));
+                                foreach ($tipos_unicos as $tipo): ?>
+                                    <option value="<?= htmlspecialchars($tipo); ?>">
+                                        <?= htmlspecialchars($tipo); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <select id="filtroEstado" class="form-select">
+                                <option value="todos">Todos los estados</option>
+                                <option value="Disponible">Disponibles</option>
+                                <option value="Adoptado">Adoptados</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <select id="tipoVista" class="form-select">
+                                <option value="combinado">Vista Combinada</option>
+                                <option value="porTipo">Por Tipo</option>
+                                <option value="porEstado">Por Estado</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="table-responsive">
-                        <table class="table">
+                        <table class="table" id="tablaDistribucion">
                             <thead class="table-light">
                                 <tr>
                                     <th>Tipo</th>
+                                    <th>Estado</th>
                                     <th class="text-end">Cantidad</th>
                                     <th>Distribución</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php
-                                $total = array_sum(array_column($stats['por_tipo'], 'cantidad'));
-                                foreach ($stats['por_tipo'] as $tipo):
-                                    $porcentaje = $total > 0 ? ($tipo['cantidad'] / $total) * 100 : 0;
+                                foreach ($stats['distribucion'] as $item):
+                                    if (!$item['estado_adopcion'])
+                                        continue; // Saltar si no hay estado de adopción
                                     ?>
-                                    <tr>
+                                    <tr data-tipo="<?= htmlspecialchars($item['tipo_nombre']); ?>"
+                                        data-estado="<?= htmlspecialchars($item['estado_adopcion']); ?>">
                                         <td>
                                             <i class="fas fa-paw text-primary me-2"></i>
-                                            <?= htmlspecialchars($tipo['nombre']); ?>
+                                            <?= htmlspecialchars($item['tipo_nombre']); ?>
                                         </td>
-                                        <td class="text-end"><?= number_format($tipo['cantidad']); ?></td>
-                                        <td style="width: 50%;">
+                                        <td>
+                                            <span
+                                                class="badge <?= $item['estado_adopcion'] === 'Disponible' ? 'bg-success' : 'bg-warning text-dark'; ?>">
+                                                <?= $item['estado_adopcion']; ?>
+                                            </span>
+                                        </td>
+                                        <td class="text-end"><?= number_format($item['cantidad']); ?></td>
+                                        <td style="width: 40%;">
                                             <div class="progress" style="height: 20px;">
-                                                <div class="progress-bar bg-primary" role="progressbar"
-                                                    style="width: <?= $porcentaje; ?>%" aria-valuenow="<?= $porcentaje; ?>"
-                                                    aria-valuemin="0" aria-valuemax="100">
-                                                    <?= number_format($porcentaje, 1); ?>%
+                                                <div class="progress-bar <?= $item['estado_adopcion'] === 'Disponible' ? 'bg-success' : 'bg-warning'; ?>"
+                                                    role="progressbar" style="width: 0%">
+                                                    0%
                                                 </div>
                                             </div>
                                         </td>
@@ -106,6 +144,57 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function () {
+                            const filtroTipo = document.getElementById('filtroTipo');
+                            const filtroEstado = document.getElementById('filtroEstado');
+                            const tipoVista = document.getElementById('tipoVista');
+                            const tabla = document.getElementById('tablaDistribucion');
+                            const filas = tabla.querySelectorAll('tbody tr');
+
+                            function actualizarTabla() {
+                                const tipoSeleccionado = filtroTipo.value;
+                                const estadoSeleccionado = filtroEstado.value;
+                                const vistaSeleccionada = tipoVista.value;
+
+                                let totalVisible = 0;
+                                let filasVisibles = [];
+
+                                filas.forEach(fila => {
+                                    const tipo = fila.dataset.tipo;
+                                    const estado = fila.dataset.estado;
+                                    const mostrarPorTipo = tipoSeleccionado === 'todos' || tipo === tipoSeleccionado;
+                                    const mostrarPorEstado = estadoSeleccionado === 'todos' || estado === estadoSeleccionado;
+
+                                    if (mostrarPorTipo && mostrarPorEstado) {
+                                        fila.style.display = '';
+                                        const cantidad = parseInt(fila.querySelector('td:nth-child(3)').textContent.replace(',', ''));
+                                        totalVisible += cantidad;
+                                        filasVisibles.push(fila);
+                                    } else {
+                                        fila.style.display = 'none';
+                                    }
+                                });
+
+                                // Actualizar porcentajes
+                                filasVisibles.forEach(fila => {
+                                    const cantidad = parseInt(fila.querySelector('td:nth-child(3)').textContent.replace(',', ''));
+                                    const porcentaje = (cantidad / totalVisible * 100).toFixed(1);
+                                    const progressBar = fila.querySelector('.progress-bar');
+                                    progressBar.style.width = porcentaje + '%';
+                                    progressBar.textContent = porcentaje + '%';
+                                });
+                            }
+
+                            filtroTipo.addEventListener('change', actualizarTabla);
+                            filtroEstado.addEventListener('change', actualizarTabla);
+                            tipoVista.addEventListener('change', actualizarTabla);
+
+                            // Inicializar la tabla
+                            actualizarTabla();
+                        });
+                    </script>
                 </div>
             </div>
         </div>

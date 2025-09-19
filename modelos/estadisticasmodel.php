@@ -36,14 +36,18 @@ class EstadisticasModel
         $result = $this->cn->consulta($sql);
         $stats['total_adoptantes'] = $result[0]['total'];
 
-        // Estadísticas por tipo de mascota
-        $sql = "SELECT t.nombre, COUNT(m.id_mascota) as cantidad
+        // Estadísticas por tipo de mascota y estado de adopción
+        $sql = "SELECT 
+                    t.nombre as tipo_nombre,
+                    m.estado_adopcion,
+                    COUNT(m.id_mascota) as cantidad,
+                    t.id_tipo
                 FROM TiposMascota t
                 LEFT JOIN Mascotas m ON t.id_tipo = m.id_tipo AND m.estado = 'Activo'
                 WHERE t.estado = 'Activo'
-                GROUP BY t.id_tipo, t.nombre
-                ORDER BY cantidad DESC";
-        $stats['por_tipo'] = $this->cn->consulta($sql);
+                GROUP BY t.id_tipo, t.nombre, m.estado_adopcion
+                ORDER BY t.nombre, m.estado_adopcion";
+        $stats['distribucion'] = $this->cn->consulta($sql);
 
         // Total de adopciones activas como estadística reciente
         $sql = "SELECT COUNT(*) as recientes 
