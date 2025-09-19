@@ -5,22 +5,39 @@ require_once 'clases/tipomascota.php';
 class TipoMascotaModel
 {
     private $cn;
+
     public function __construct()
     {
         $this->cn = new CNpdo();
     }
 
-    public function getAll()
+    public function search($filters = array())
     {
         $sql = "SELECT * FROM TiposMascota WHERE estado = 'Activo'";
-        $rows = $this->cn->consulta($sql);
-        $out = [];
+        $params = array();
+
+        if (!empty($filters['search'])) {
+            $sql .= " AND (nombre LIKE ? OR CAST(id_tipo AS CHAR) LIKE ?)";
+            $searchTerm = "%" . $filters['search'] . "%";
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+        }
+
+        $sql .= " ORDER BY nombre ASC";
+        $rows = $this->cn->consulta($sql, $params);
+
+        $out = array();
         foreach ($rows as $r) {
             $tipo = new TipoMascota($r['id_tipo'], $r['nombre'], $r['descripcion']);
             $tipo->setEstado($r['estado']);
             $out[] = $tipo;
         }
         return $out;
+    }
+
+    public function getAll()
+    {
+        return $this->search();
     }
 
     public function getById($id)

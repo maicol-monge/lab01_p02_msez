@@ -13,7 +13,7 @@
                             <label for="id_tipo" class="form-label">Tipo de Mascota:</label>
                             <select id="id_tipo" name="id_tipo" class="form-select" required>
                                 <?php foreach ($tipos as $t): ?>
-                                    <option value="<?= $t->getIdTipo(); ?>" <?= ($t->getIdTipo() == $mascota->getIdraza()) ? 'selected' : ''; ?>>
+                                    <option value="<?= $t->getIdTipo(); ?>" <?= ($t->getIdTipo() == $mascota->getIdTipo()) ? 'selected' : ''; ?>>
                                         <?= htmlspecialchars($t->getNombre()); ?>
                                     </option>
                                 <?php endforeach; ?>

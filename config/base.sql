@@ -1,7 +1,7 @@
+
 -- Crear la base de datos
--- Crear la base de datos
-CREATE DATABASE IF NOT EXISTS refugio;
-USE refugio;
+CREATE DATABASE IF NOT EXISTS mascotas_ms_zr;
+USE mascotas_ms_zr;
 
 -- 1. Tipos de mascota
 CREATE TABLE TiposMascota (

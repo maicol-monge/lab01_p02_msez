@@ -11,7 +11,11 @@ class TipomascotaController
 
     public function index()
     {
-        $tipos = $this->model->getAll();
+        $filters = [];
+        if (!empty($_GET['search'])) {
+            $filters['search'] = $_GET['search'];
+        }
+        $tipos = $this->model->search($filters);
         include 'vistas/tipomascota/index.php';
     }
     public function create()

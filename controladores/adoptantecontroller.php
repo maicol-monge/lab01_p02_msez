@@ -11,7 +11,11 @@ class AdoptanteController
 
     public function index()
     {
-        $adoptantes = $this->model->getAll();
+        $filters = array();
+        if (!empty($_GET['search'])) {
+            $filters['search'] = $_GET['search'];
+        }
+        $adoptantes = $this->model->search($filters);
         include 'vistas/adoptante/index.php';
     }
     public function create()

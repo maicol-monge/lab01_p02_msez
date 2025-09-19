@@ -32,20 +32,61 @@
 
                         <div class="mb-4">
                             <label for="id_mascota" class="form-label">Mascota a Adoptar:</label>
+                            <div class="input-group mb-2">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="buscarMascota"
+                                    placeholder="Buscar mascota por nombre o tipo...">
+                            </div>
                             <select id="id_mascota" name="id_mascota" class="form-select">
                                 <option value="">Sin asignar mascota</option>
                                 <?php foreach ($mascotas as $m): ?>
-                                    <?php $label = ($m['nombre'] ?? ('Mascota #' . $m['id_mascota'])) .
-                                        (isset($m['tipo_nombre']) ? ' (' . $m['tipo_nombre'] . ')' : ''); ?>
-                                    <option value="<?= $m['id_mascota']; ?>" <?= $adoptante->getIdMascota() == $m['id_mascota'] ? 'selected' : ''; ?>>
+                                    <?php
+                                    $label = sprintf(
+                                        "#%d - %s (%s)",
+                                        $m['id_mascota'],
+                                        $m['nombre'] ?? 'Sin nombre',
+                                        $m['tipo_nombre'] ?? 'Sin tipo'
+                                    );
+                                    ?>
+                                    <option value="<?= $m['id_mascota']; ?>"
+                                        data-nombre="<?= htmlspecialchars(strtolower($m['nombre'] ?? '')); ?>"
+                                        data-tipo="<?= htmlspecialchars(strtolower($m['tipo_nombre'] ?? '')); ?>"
+                                        data-id="<?= $m['id_mascota']; ?>" <?= $adoptante->getIdMascota() == $m['id_mascota'] ? 'selected' : ''; ?>>
                                         <?= htmlspecialchars($label); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
                             <div class="form-text">
-                                Selecciona la mascota que será adoptada por esta persona
+                                Puedes buscar y seleccionar la mascota por nombre o tipo
                             </div>
                         </div>
+
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function () {
+                                const buscarInput = document.getElementById('buscarMascota');
+                                const selectMascota = document.getElementById('id_mascota');
+                                const opciones = Array.from(selectMascota.options);
+
+                                buscarInput.addEventListener('input', function (e) {
+                                    const busqueda = e.target.value.toLowerCase().trim();
+
+                                    opciones.forEach(opcion => {
+                                        if (opcion.value === '') return; // Mantener la opción "Sin asignar mascota"
+
+                                        const nombre = opcion.getAttribute('data-nombre') || '';
+                                        const tipo = opcion.getAttribute('data-tipo') || '';
+                                        const id = opcion.getAttribute('data-id') || '';
+                                        const coincide = nombre.includes(busqueda) ||
+                                            tipo.includes(busqueda) ||
+                                            id.includes(busqueda);
+
+                                        opcion.style.display = coincide ? '' : 'none';
+                                    });
+                                });
+                            });
+                        </script>
 
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle me-2"></i>

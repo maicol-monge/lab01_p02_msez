@@ -10,14 +10,43 @@ class AdoptanteModel
         $this->cn = new CNpdo();
     }
 
-    public function getAll()
+    public function search($filters = array())
     {
         $sql = "SELECT a.*, m.nombre AS nom_mascota, m.foto, t.nombre AS tipo_nombre
                 FROM Adoptantes a
                 LEFT JOIN Mascotas m ON m.id_mascota = a.id_mascota
                 LEFT JOIN TiposMascota t ON t.id_tipo = m.id_tipo
                 WHERE a.estado = 'Activo'";
-        $rows = $this->cn->consulta($sql);
+
+        $params = array();
+
+        if (!empty($filters['search'])) {
+            $sql .= " AND (a.nombre LIKE ? OR CAST(a.id_adoptante AS CHAR) LIKE ? OR a.telefono LIKE ? OR m.nombre LIKE ?)";
+            $searchTerm = "%" . $filters['search'] . "%";
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+        }
+
+        $sql .= " ORDER BY a.nombre ASC";
+        $rows = $this->cn->consulta($sql, $params);
+
+        $out = array();
+        foreach ($rows as $r) {
+            $a = new Adoptante($r['id_adoptante'], $r['nombre'], $r['telefono'], $r['id_mascota']);
+            $a->setEstado($r['estado']);
+            $a->nom_mascota = $r['nom_mascota'] ?? null;
+            $a->foto_mascota = $r['foto'] ?? null;
+            $a->tipo_mascota = $r['tipo_nombre'] ?? null;
+            $out[] = $a;
+        }
+        return $out;
+    }
+
+    public function getAll()
+    {
+        return $this->search();
         $out = [];
         foreach ($rows as $r) {
             $a = new Adoptante($r['id_adoptante'], $r['nombre'], $r['telefono'], $r['id_mascota']);
