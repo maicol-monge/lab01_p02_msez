@@ -101,7 +101,13 @@ $contenido = new Contenido();
                                 <i class="fas fa-tags me-1"></i> Categorías
                             </a>
                         </li>
-                        <!-- Quita el enlace de Adoptantes si ya no existe -->
+                        <?php if (isset($_SESSION['usuario']) && $_SESSION['usuario']['rol'] === 'Administrador'): ?>
+                            <li class="nav-item">
+                                <a class="nav-link" href="<?= RUTA; ?>adopcion">
+                                    <i class="fas fa-heart me-1"></i> Solicitudes de Adopción
+                                </a>
+                            </li>
+                        <?php endif; ?>
                         <?php if (isset($_SESSION['usuario'])): ?>
                             <li class="nav-item">
                                 <span class="nav-link">Hola, <?= $_SESSION['usuario']['nombre']; ?> (<?= $_SESSION['usuario']['rol']; ?>)</span>

@@ -2,7 +2,7 @@
 require_once "modelos/adopcionmodel.php";
 class adopcioncontroller {
     public function index() {
-        require_once "vistas/adopcion.php";
+        require_once "vistas/adopcion/index.php";
     }
 
     public function adoptar() {
