@@ -25,7 +25,11 @@ class EstadisticasController
         $raw = file_get_contents('php://input');
         $data = json_decode($raw, true);
         if (is_array($data) && isset($data['filtros'])) {
-            $filtros = $data['filtros'];
+            $filtros = [
+                'filtroTipo'   => $data['filtros']['filtroTipo']   ?? 'todos',
+                'filtroEstado' => $data['filtros']['filtroEstado'] ?? 'todos',
+                'tipoVista'    => $data['filtros']['tipoVista']    ?? 'combinado',
+            ];
         } else {
             $filtros = [
                 'filtroTipo'   => $_POST['filtroTipo']   ?? $_GET['filtroTipo']   ?? 'todos',
@@ -34,54 +38,77 @@ class EstadisticasController
             ];
         }
 
-        // Generar la imagen del gráfico en memoria (filtrada)
+        // Datos filtrados para resumen + imagen
+        [$labels, $values, $titulo, $total] = $this->prepararDatosGrafico($filtros);
+        if ($total <= 0) {
+            http_response_code(400);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'No hay datos para generar el gráfico con los filtros aplicados.';
+            return;
+        }
+
         $imageData = $this->generarImagenGrafico($filtros);
         if ($imageData === false) {
             http_response_code(500);
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['error' => 'No se pudo generar la imagen del gráfico (falta JPGraph o GD).']);
-            exit;
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'No se pudo generar la imagen del gráfico.';
+            return;
         }
 
-        $stats = $this->model->obtenerEstadisticas();
+        $imgDataUri = 'data:image/png;base64,' . base64_encode($imageData);
 
-        $html = '<h2>Reporte de Estadísticas - Refugio</h2>';
-        $html .= '<p>Generado: ' . date('Y-m-d H:i:s') . '</p>';
-        $html .= '<div><img src="data:image/png;base64,' . base64_encode($imageData) . '" style="max-width:600px; width:100%; height:auto;"/></div>';
+        // Subtítulo con filtros aplicados
+        $sub = [];
+        $sub[] = ($filtros['filtroTipo']==='todos' ? 'Todos los tipos'   : 'Tipo: '   . htmlspecialchars($filtros['filtroTipo']));
+        $sub[] = ($filtros['filtroEstado']==='todos' ? 'Todos los estados' : 'Estado: ' . htmlspecialchars($filtros['filtroEstado']));
+        $sub[] = 'Vista: ' . htmlspecialchars($filtros['tipoVista']);
+        $subtitle = implode(' · ', $sub);
 
-        // Agregar tabla resumen
-        $html .= '<h3>Resumen</h3>';
-        $html .= '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">'
-              . '<tr><th>Etiqueta</th><th>Valor</th></tr>';
-        $html .= '<tr><td>Total mascotas</td><td>' . ($stats['total_mascotas'] ?? 0) . '</td></tr>';
-        $html .= '<tr><td>Mascotas disponibles</td><td>' . ($stats['mascotas_disponibles'] ?? 0) . '</td></tr>';
-        $html .= '<tr><td>Mascotas adoptadas</td><td>' . ($stats['mascotas_adoptadas'] ?? 0) . '</td></tr>';
-        $html .= '<tr><td>Total adoptantes</td><td>' . ($stats['total_adoptantes'] ?? 0) . '</td></tr>';
-        $html .= '<tr><td>Adopciones recientes</td><td>' . ($stats['adopciones_recientes'] ?? 0) . '</td></tr>';
-        $html .= '</table>';
-
-        // Intentar usar Dompdf si existe
-        if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
-            require_once __DIR__ . '/../vendor/autoload.php';
+        // Resumen por segmento (solo del subconjunto filtrado)
+        $rows = '';
+        foreach ($labels as $i => $label) {
+            $val = (int)$values[$i];
+            $pct = $total ? round(($val/$total)*100, 1) : 0;
+            $rows .= '<tr><td>'.htmlspecialchars($label).'</td>'
+                   . '<td style="text-align:right">'.number_format($val).'</td>'
+                   . '<td style="text-align:right">'.$pct.'%</td></tr>';
         }
 
+        $html = '<html><head><meta charset="utf-8"><style>
+            body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#222;margin:22px}
+            h1{font-size:18px;margin:0 0 6px 0}
+            .muted{color:#666;margin:0 0 12px 0}
+            .imgbox{border:1px solid #eee;padding:6px;border-radius:6px}
+            table{width:100%;border-collapse:collapse;margin-top:14px}
+            th,td{border:1px solid #e5e5e5;padding:6px 8px}
+            th{background:#f6f8fa;text-align:left}
+        </style></head><body>
+        <h1>Gráfico — Distribución de mascotas</h1>
+        <div class="muted">'.$subtitle.' · Generado: '.date('Y-m-d H:i').'</div>
+        <div class="imgbox"><img src="'.$imgDataUri.'" style="width:100%;max-width:720px;height:auto"/></div>
+        <h2 style="margin-top:16px;font-size:16px">Resumen (filtros aplicados)</h2>
+        <table>
+          <thead><tr><th>Segmento</th><th style="text-align:right">Cantidad</th><th style="text-align:right">% del total</th></tr></thead>
+          <tbody>'.$rows.'<tr><th>Total</th><th style="text-align:right">'.number_format($total).'</th><th></th></tr></tbody>
+        </table>
+        </body></html>';
+
+        // Dompdf
+        if (file_exists(__DIR__ . '/../vendor/autoload.php')) { require_once __DIR__ . '/../vendor/autoload.php'; }
         if (class_exists('Dompdf\\Dompdf')) {
             $dompdf = new \Dompdf\Dompdf();
-            $dompdf->loadHtml($html);
-            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->loadHtml($html, 'UTF-8');
+            $dompdf->setPaper('A4','portrait');
             $dompdf->render();
-            $pdf = $dompdf->output();
             header('Content-Type: application/pdf');
-            header('Content-Disposition: attachment; filename="estadisticas.pdf"');
-            echo $pdf;
-            exit;
+            header('Content-Disposition: attachment; filename="grafico_distribucion.pdf"');
+            echo $dompdf->output();
+            return;
         }
 
-        // Si Dompdf no está disponible, devolver error claro para que el front muestre mensaje
-        http_response_code(501);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['error' => 'Dompdf no está instalado en el servidor. Instala dompdf/dompdf vía composer.']);
-        exit;
+        // Fallback HTML
+        header('Content-Type: text/html; charset=utf-8');
+        echo $html;
     }
 
     // Nuevo: Endpoint para exportar solo datos en PDF (sin gráfico)
