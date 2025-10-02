@@ -87,6 +87,11 @@ $contenido = new Contenido();
                 <div class="collapse navbar-collapse" id="collapsibleNavId">
                     <ul class="navbar-nav ms-auto">
                         <li class="nav-item">
+                            <a class="nav-link" href="<?= RUTA; ?>estadisticas">
+                                <i class="fas fa-chart-pie me-1"></i> Estadísticas
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="<?= RUTA; ?>mascota">
                                 <i class="fas fa-dog me-1"></i> Mascotas en Adopción
                             </a>

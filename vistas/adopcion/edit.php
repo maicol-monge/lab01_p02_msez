@@ -25,10 +25,36 @@
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fas fa-phone"></i></span>
                                 <input type="tel" class="form-control" id="telefono" name="telefono"
-                                    value="<?= htmlspecialchars($adoptante->getTelefono()); ?>">
+                                    value="<?= htmlspecialchars($adoptante->getTelefono()); ?>" required>
+                                <div class="invalid-feedback">
+                                    Por favor ingresa un número de teléfono de contacto.
+                                </div>
                             </div>
                             <div class="form-text">Número de teléfono para seguimiento de la adopción</div>
                         </div>
+
+                        <script>
+                            // Example starter JavaScript for disabling form submissions if there are invalid fields
+                            (function () {
+                                'use strict'
+
+                                // Fetch all the forms we want to apply custom Bootstrap validation styles to
+                                var forms = document.querySelectorAll('.needs-validation')
+
+                                // Loop over them and prevent submission
+                                Array.prototype.slice.call(forms)
+                                    .forEach(function (form) {
+                                        form.addEventListener('submit', function (event) {
+                                            if (!form.checkValidity()) {
+                                                event.preventDefault()
+                                                event.stopPropagation()
+                                            }
+
+                                            form.classList.add('was-validated')
+                                        }, false)
+                                    })
+                            })()
+                        </script>
 
                         <div class="mb-4">
                             <label for="id_mascota" class="form-label">Mascota a Adoptar:</label>
@@ -39,7 +65,7 @@
                                 <input type="text" class="form-control" id="buscarMascota"
                                     placeholder="Buscar mascota por nombre o tipo...">
                             </div>
-                            <select id="id_mascota" name="id_mascota" class="form-select">
+                            <select id="id_mascota" name="id_mascota" class="form-select" required>
                                 <option value="">Sin asignar mascota</option>
                                 <?php foreach ($mascotas as $m): ?>
                                     <?php
