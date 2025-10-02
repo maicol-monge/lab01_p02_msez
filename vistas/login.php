@@ -16,6 +16,7 @@ if (isset($error)) {
                 <input type="password" name="password" class="form-control" required>
             </div>
             <button type="submit" class="btn btn-primary">Ingresar</button>
+            <a href="<?= RUTA; ?>login/registrar" class="btn btn-link">¿No tienes cuenta? Regístrate</a>
         </form>
     </div>
 </div>
