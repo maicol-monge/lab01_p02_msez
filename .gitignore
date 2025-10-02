@@ -1,0 +1,53 @@
+# OS-specific
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+
+# IDE / Editor
+.vscode/
+.idea/
+*.code-workspace
+*.sublime-*
+
+# Logs / Cache / Temp
+*.log
+logs/
+cache/
+tmp/
+temp/
+*.tmp
+
+# Environment / Secrets
+.env
+.env.*
+
+# PHP / Composer
+vendor/
+composer.lock
+
+# Node / Frontend (if present)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-lock.yaml
+package-lock.json
+dist/
+build/
+coverage/
+
+# Assets (no enviar cambios de assets)
+assets/
+assets/qrs/
+public/assets/
+public/img/
+img/
+uploads/
+storage/
+static/
+*.map
+
+# Misc
+.coverage
+.nyc_output/
+*.iml
