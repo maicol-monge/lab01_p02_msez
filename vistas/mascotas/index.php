@@ -146,6 +146,27 @@ FOREIGN KEY (idraza) REFERENCES raza(idraza)
                                 <i class="fas fa-trash me-1"></i>Eliminar
                             </a>
                         </div>
+
+                        <?php
+    // obtener ruta del QR desde diferentes posibles estructuras ($mascota puede ser objeto o array)
+    $qrPath = '';
+    if (is_object($mascota) && method_exists($mascota, 'getQrCode')) {
+        $qrPath = $mascota->getQrCode();
+    } elseif (is_object($mascota) && property_exists($mascota, 'qr_code')) {
+        $qrPath = $mascota->qr_code;
+    } elseif (is_array($mascota) && isset($mascota['qr_code'])) {
+        $qrPath = $mascota['qr_code'];
+    }
+?>
+<?php if (!empty($qrPath)): ?>
+    <div class="mt-2 text-center">
+        <a href="<?= RUTA ?>mascota/ver/<?= is_object($mascota) && method_exists($mascota,'getIdmascota') ? $mascota->getIdmascota() : (is_array($mascota) ? $mascota['id_mascota'] ?? '' : '') ?>">
+            <img src="<?= htmlspecialchars(RUTA . $qrPath) ?>" alt="QR <?= htmlspecialchars($mascota->getNomMascota() ?? ($mascota['nombre'] ?? '')) ?>" style="width:80px;height:auto;border-radius:6px;">
+        </a>
+    </div>
+<?php else: ?>
+    <div class="mt-2 text-center text-muted small">Sin QR</div>
+<?php endif; ?>
                     </div>
                 </div>
             </div>

@@ -13,16 +13,20 @@ class Mascota
     private $id_tipo;        // nuevo (antes idraza)
     private $nom_mascota;    // nombre
     private $foto;           // foto
+    private $descripcion;    // descripción
+    private $estado_adopcion; // Estado de adopción (Disponible/Adoptado)
     private $tipo;           // TipoMascota (antes $raza)
+    private $qr_code;        // Código QR
     private $estado = 'Activo';       // Estado del registro (Activo/Inactivo)
-    private $estado_adopcion = 'Disponible'; // Estado de adopción (Disponible/Adoptado)
 
-    public function __construct($idmascota = null, $id_tipo = null, $nom_mascota = '', $foto = '', $tipo = null)
+    public function __construct($idmascota = null, $id_tipo = null, $nom_mascota = '', $foto = '', $descripcion = '', $estado_adopcion = 'Disponible', $tipo = null)
     {
         $this->idmascota = $idmascota;
         $this->id_tipo = $id_tipo;
         $this->nom_mascota = $nom_mascota;
         $this->foto = $foto;
+        $this->descripcion = $descripcion;
+        $this->estado_adopcion = $estado_adopcion;
         $this->tipo = $tipo;
     }
 
@@ -59,6 +63,22 @@ class Mascota
     {
         $this->foto = $v;
     }
+    public function getDescripcion()
+    {
+        return $this->descripcion;
+    }
+    public function setDescripcion($v)
+    {
+        $this->descripcion = $v;
+    }
+    public function getEstadoAdopcion()
+    {
+        return $this->estado_adopcion;
+    }
+    public function setEstadoAdopcion($v)
+    {
+        $this->estado_adopcion = $v;
+    }
     // Acceso al objeto TipoMascota
     public function getTipo()
     {
@@ -68,6 +88,14 @@ class Mascota
     {
         $this->tipo = $v;
     }
+    public function getQrCode()
+    {
+        return $this->qr_code;
+    }
+    public function setQrCode($path)
+    {
+        $this->qr_code = $path;
+    }
 
     public function getEstado()
     {
@@ -76,15 +104,6 @@ class Mascota
     public function setEstado($v)
     {
         $this->estado = $v;
-    }
-
-    public function getEstadoAdopcion()
-    {
-        return $this->estado_adopcion;
-    }
-    public function setEstadoAdopcion($v)
-    {
-        $this->estado_adopcion = $v;
     }
 }
 ?>
