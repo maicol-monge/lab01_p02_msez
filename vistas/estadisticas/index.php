@@ -177,6 +177,9 @@
                             <div id="chartAlert" class="alert alert-warning d-none" role="alert"></div>
                             <div class="d-grid gap-2">
                                 <button id="btnExportPDF" class="btn btn-danger">Gráfico: PDF</button>
+                                <!-- NUEVOS BOTONES -->
+                                <button id="btnExportDatosPDF" class="btn btn-outline-danger">Reporte: PDF (datos)</button>
+                                <button id="btnExportExcel" class="btn btn-success">Reporte: Excel (datos)</button>
                             </div>
                         </div>
                     </div>
@@ -348,19 +351,46 @@
         <input type="hidden" name="tipoVista" />
     </form>
 
+    <!-- NUEVOS: formularios ocultos para datos (PDF y Excel/CSV) -->
+    <form id="formDatosPdf" action="<?= RUTA; ?>estadisticas/exportar_datos_pdf" method="post" target="_blank" style="display:none">
+        <input type="hidden" name="filtroTipo" />
+        <input type="hidden" name="filtroEstado" />
+        <input type="hidden" name="tipoVista" />
+    </form>
+    <form id="formDatosExcel" action="<?= RUTA; ?>estadisticas/exportar_excel" method="post" target="_blank" style="display:none">
+        <input type="hidden" name="filtroTipo" />
+        <input type="hidden" name="filtroEstado" />
+        <input type="hidden" name="tipoVista" />
+    </form>
+
     <script>
     document.addEventListener('DOMContentLoaded', function(){
         const filtroTipo   = document.getElementById('filtroTipo');
         const filtroEstado = document.getElementById('filtroEstado');
         const tipoVista    = document.getElementById('tipoVista');
-        const btnGrafPdf   = document.getElementById('btnExportPDF');
-        const formGrafPdf  = document.getElementById('formGrafPdf');
+
+        const btnGrafPdf     = document.getElementById('btnExportPDF');
+        const btnDatosPdf    = document.getElementById('btnExportDatosPDF');
+        const btnDatosExcel  = document.getElementById('btnExportExcel');
+
+        const formGrafPdf    = document.getElementById('formGrafPdf');
+        const formDatosPdf   = document.getElementById('formDatosPdf');
+        const formDatosExcel = document.getElementById('formDatosExcel');
+
+        function setFilters(form){
+            form.elements.filtroTipo.value   = filtroTipo?.value   || 'todos';
+            form.elements.filtroEstado.value = filtroEstado?.value || 'todos';
+            form.elements.tipoVista.value    = tipoVista?.value    || 'combinado';
+        }
 
         btnGrafPdf.addEventListener('click', function(){
-            formGrafPdf.elements.filtroTipo.value   = filtroTipo?.value   || 'todos';
-            formGrafPdf.elements.filtroEstado.value = filtroEstado?.value || 'todos';
-            formGrafPdf.elements.tipoVista.value    = tipoVista?.value    || 'combinado';
-            formGrafPdf.submit();
+            setFilters(formGrafPdf); formGrafPdf.submit();
+        });
+        btnDatosPdf.addEventListener('click', function(){
+            setFilters(formDatosPdf); formDatosPdf.submit();
+        });
+        btnDatosExcel.addEventListener('click', function(){
+            setFilters(formDatosExcel); formDatosExcel.submit();
         });
     });
     </script>

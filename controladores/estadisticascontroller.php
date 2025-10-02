@@ -21,12 +21,20 @@ class EstadisticasController
     // Endpoint para generar PDF que recibe JSON con image (data URI) y filtros
     public function exportar_pdf()
     {
-        // Leer filtros enviados (JSON)
+        // Leer filtros (JSON o POST/GET)
         $raw = file_get_contents('php://input');
         $data = json_decode($raw, true);
-        $filtros = $data['filtros'] ?? [];
+        if (is_array($data) && isset($data['filtros'])) {
+            $filtros = $data['filtros'];
+        } else {
+            $filtros = [
+                'filtroTipo'   => $_POST['filtroTipo']   ?? $_GET['filtroTipo']   ?? 'todos',
+                'filtroEstado' => $_POST['filtroEstado'] ?? $_GET['filtroEstado'] ?? 'todos',
+                'tipoVista'    => $_POST['tipoVista']    ?? $_GET['tipoVista']    ?? 'combinado',
+            ];
+        }
 
-        // Generar la imagen del gráfico en memoria (llama a método interno)
+        // Generar la imagen del gráfico en memoria (filtrada)
         $imageData = $this->generarImagenGrafico($filtros);
         if ($imageData === false) {
             http_response_code(500);
@@ -79,240 +87,156 @@ class EstadisticasController
     // Nuevo: Endpoint para exportar solo datos en PDF (sin gráfico)
     public function exportar_datos_pdf()
     {
-        $stats = $this->model->obtenerEstadisticas();
+        $filtroTipo   = $_POST['filtroTipo']   ?? $_GET['filtroTipo']   ?? 'todos';
+        $filtroEstado = $_POST['filtroEstado'] ?? $_GET['filtroEstado'] ?? 'todos';
+        $tipoVista    = $_POST['tipoVista']    ?? $_GET['tipoVista']    ?? 'combinado';
 
-        // Construir HTML de datos
-        $html = '<style>
-            @page { margin: 60px 40px; }
-            header { position: fixed; top: -40px; left: 0; right: 0; height: 30px; }
-            footer { position: fixed; bottom: -30px; left: 0; right: 0; height: 20px; font-size: 11px; color: #777; text-align:center; }
-            table { width:100%; border-collapse: collapse; }
-            th, td { border:1px solid #e5e5e5; padding:6px 8px; font-size:12px; }
-            th { background:#f6f8fa; text-align:left; }
-            h2 { color:#2a9d8f; }
-        </style>';
-        $html .= '<header><table style="border:none; width:100%"><tr><td style="border:none"><strong>Refugio Amigos Fieles</strong></td><td style="border:none; text-align:right">Generado: '.date('Y-m-d H:i').'</td></tr></table></header>';
-        $html .= '<footer>Página <span class="pagenum"></span></footer>';
-        $html .= '<h2>Reporte de Datos</h2>';
-        $html .= '<table>';
-        $html .= '<tr><th>Clave</th><th>Valor</th></tr>';
-        $html .= '<tr><td>Total mascotas</td><td>' . ($stats['total_mascotas'] ?? 0) . '</td></tr>';
-        $html .= '<tr><td>Mascotas disponibles</td><td>' . ($stats['mascotas_disponibles'] ?? 0) . '</td></tr>';
-        $html .= '<tr><td>Mascotas adoptadas</td><td>' . ($stats['mascotas_adoptadas'] ?? 0) . '</td></tr>';
-        $html .= '<tr><td>Total adoptantes</td><td>' . ($stats['total_adoptantes'] ?? 0) . '</td></tr>';
-        $html .= '<tr><td>Adopciones recientes</td><td>' . ($stats['adopciones_recientes'] ?? 0) . '</td></tr>';
-        $html .= '</table>';
+        [$labels, $values, $titulo, $total] = $this->prepararDatosGrafico([
+            'filtroTipo' => $filtroTipo, 'filtroEstado' => $filtroEstado, 'tipoVista' => $tipoVista
+        ]);
 
-        // Intentar usar Dompdf
-        if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
-            require_once __DIR__ . '/../vendor/autoload.php';
+        // Construir tabla de datos (aunque no haya datos, se genera PDF con "Sin datos")
+        $rows = '';
+        if ($total > 0) {
+            foreach ($labels as $i => $label) {
+                $val = (int)$values[$i];
+                $pct = $total ? round(($val/$total)*100, 1) : 0;
+                $rows .= '<tr><td>'.htmlspecialchars($label).'</td>'
+                       . '<td style="text-align:right">'.number_format($val).'</td>'
+                       . '<td style="text-align:right">'.$pct.'%</td></tr>';
+            }
+        } else {
+            $rows = '<tr><td colspan="3">Sin datos con los filtros aplicados.</td></tr>';
         }
+
+        $html = '<html><head><meta charset="utf-8"><style>
+            body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#222;margin:22px}
+            h1{font-size:18px;margin:0 0 6px 0}
+            .muted{color:#666;margin:0 0 12px 0}
+            table{width:100%;border-collapse:collapse;margin-top:8px}
+            th,td{border:1px solid #e5e5e5;padding:6px 8px}
+            th{background:#f6f8fa;text-align:left}
+        </style></head><body>
+        <h1>Reporte de datos — Distribución de mascotas</h1>
+        <div class="muted">Filtros: '.
+            ($filtroTipo==='todos'?'Todos los tipos':('Tipo: '.htmlspecialchars($filtroTipo))).' · '.
+            ($filtroEstado==='todos'?'Todos los estados':('Estado: '.htmlspecialchars($filtroEstado))).' · '.
+            'Vista: '.htmlspecialchars($tipoVista).' · Generado: '.date('Y-m-d H:i').
+        '</div>
+        <table><thead><tr><th>Segmento</th><th style="text-align:right">Cantidad</th><th style="text-align:right">% del total</th></tr></thead>
+        <tbody>'.$rows.($total>0?('<tr><th>Total</th><th style="text-align:right">'.number_format($total).'</th><th></th></tr>'):'').'</tbody></table>
+        </body></html>';
+
+        // Dompdf
+        $autoload = __DIR__ . '/../vendor/autoload.php';
+        if (file_exists($autoload)) require_once $autoload;
         if (class_exists('Dompdf\\Dompdf')) {
             $dompdf = new \Dompdf\Dompdf();
-            $dompdf->loadHtml($html);
-            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->loadHtml($html, 'UTF-8');
+            $dompdf->setPaper('A4','portrait');
             $dompdf->render();
-            $pdf = $dompdf->output();
             header('Content-Type: application/pdf');
-            header('Content-Disposition: attachment; filename="reporte_datos.pdf"');
-            echo $pdf;
-            exit;
+            header('Content-Disposition: attachment; filename="reporte_distribucion.pdf"');
+            echo $dompdf->output();
+            return;
         }
 
-        http_response_code(501);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['error' => 'Dompdf no está instalado en el servidor. Instala dompdf/dompdf vía composer.']);
-        exit;
+        // Fallback HTML
+        header('Content-Type: text/html; charset=utf-8');
+        echo $html;
     }
 
     // Endpoint para exportar Excel (simplemente HTML con headers para Excel)
     public function exportar_excel()
     {
-        // leer filtros de query string (por ahora no aplican a CSV simple)
-        $tipo = $_GET['tipo'] ?? 'todos';
-        $estado = $_GET['estado'] ?? 'todos';
+        $filtroTipo   = $_POST['filtroTipo']   ?? $_GET['filtroTipo']   ?? 'todos';
+        $filtroEstado = $_POST['filtroEstado'] ?? $_GET['filtroEstado'] ?? 'todos';
+        $tipoVista    = $_POST['tipoVista']    ?? $_GET['tipoVista']    ?? 'combinado';
 
-        $stats = $this->model->obtenerEstadisticas();
+        [$labels, $values, $titulo, $total] = $this->prepararDatosGrafico([
+            'filtroTipo' => $filtroTipo, 'filtroEstado' => $filtroEstado, 'tipoVista' => $tipoVista
+        ]);
 
-        // Exportar como CSV real para evitar la advertencia de Excel
-        $filename = 'estadisticas_' . date('Ymd_His') . '.csv';
+        $filename = 'reporte_distribucion_' . date('Ymd_His') . '.csv';
         header('Content-Type: text/csv; charset=UTF-8');
-        header("Content-Disposition: attachment; filename={$filename}");
-        // BOM para que Excel muestre bien tildes en Windows
-        echo "\xEF\xBB\xBF";
-        // Forzar separador reconocido por Excel
-        echo "sep=,\n";
+        header('Content-Disposition: attachment; filename="'.$filename.'"');
+        echo "\xEF\xBB\xBF"; // UTF-8 BOM
+        echo "sep=,\r\n";
+        $out = fopen('php://output', 'w');
 
-        // Encabezados
-        $rows = [];
-        $rows[] = ['Clave','Valor'];
-        $rows[] = ['Total mascotas', (string)($stats['total_mascotas'] ?? 0)];
-        $rows[] = ['Mascotas disponibles', (string)($stats['mascotas_disponibles'] ?? 0)];
-        $rows[] = ['Mascotas adoptadas', (string)($stats['mascotas_adoptadas'] ?? 0)];
-        $rows[] = ['Total adoptantes', (string)($stats['total_adoptantes'] ?? 0)];
-        $rows[] = ['Adopciones recientes', (string)($stats['adopciones_recientes'] ?? 0)];
+        fputcsv($out, ['Reporte','Generado']);
+        fputcsv($out, ['Distribución de mascotas', date('Y-m-d H:i')]);
+        fputcsv($out, ['Filtros', ($filtroTipo==='todos'?'Todos los tipos':"Tipo: $filtroTipo").' · '.($filtroEstado==='todos'?'Todos los estados':"Estado: $filtroEstado").' · Vista: '.$tipoVista]);
+        fputcsv($out, []);
+        fputcsv($out, ['Segmento','Cantidad','% del total']);
 
-        // Salida CSV (comas, campos con comillas)
-        foreach ($rows as $r) {
-            $escaped = array_map(function($v){
-                $v = (string)$v;
-                $v = str_replace('"', '""', $v);
-                return '"'.$v.'"';
-            }, $r);
-            echo implode(',', $escaped) . "\n";
+        if ($total > 0) {
+            foreach ($labels as $i=>$label) {
+                $val = (int)$values[$i];
+                $pct = $total ? round(($val/$total)*100, 2) : 0;
+                fputcsv($out, [$label, $val, $pct]);
+            }
+            fputcsv($out, ['Total', $total, '']);
+        } else {
+            fputcsv($out, ['Sin datos con los filtros aplicados', '', '']);
         }
+        fclose($out);
         exit;
     }
 
-    // Reporte: Mascotas por Usuario (PDF)
-    public function exportar_mascotas_usuario_pdf()
-    {
-        $idUsuario = isset($_GET['id_usuario']) ? (int)$_GET['id_usuario'] : 0;
-        if ($idUsuario <= 0) { http_response_code(400); echo 'Falta id_usuario'; return; }
-        $rows = $this->model->obtenerMascotasPorUsuario($idUsuario);
-
-        $html = '<style>@page{margin:60px 40px} table{width:100%;border-collapse:collapse} th,td{border:1px solid #e5e5e5;padding:6px 8px;font-size:12px} th{background:#f6f8fa;text-align:left} h2{color:#2a9d8f}</style>';
-        $html .= '<h2>Mascotas adoptadas por usuario</h2>';
-        $html .= '<table><tr><th>Mascota</th><th>Tipo</th><th>Estado adopción</th></tr>';
-        foreach ($rows as $r){
-            $html .= '<tr><td>'.htmlspecialchars($r['mascota']).'</td><td>'.htmlspecialchars($r['tipo']).'</td><td>'.htmlspecialchars($r['estado_adopcion']).'</td></tr>';
-        }
-        $html .= '</table>';
-
-        if (file_exists(__DIR__ . '/../vendor/autoload.php')) { require_once __DIR__ . '/../vendor/autoload.php'; }
-        if (class_exists('Dompdf\\Dompdf')) {
-            $dompdf = new \Dompdf\Dompdf();
-            $dompdf->loadHtml($html); $dompdf->setPaper('A4', 'portrait'); $dompdf->render();
-            header('Content-Type: application/pdf');
-            header('Content-Disposition: attachment; filename="mascotas_usuario.pdf"');
-            echo $dompdf->output(); return;
-        }
-        http_response_code(501); echo 'Falta Dompdf';
-    }
-
-    // Reporte: Mascotas por Usuario (CSV)
-    public function exportar_mascotas_usuario_csv()
-    {
-        $idUsuario = isset($_GET['id_usuario']) ? (int)$_GET['id_usuario'] : 0;
-        if ($idUsuario <= 0) { http_response_code(400); echo 'Falta id_usuario'; return; }
-        $rows = $this->model->obtenerMascotasPorUsuario($idUsuario);
-        header('Content-Type: text/csv; charset=UTF-8');
-        header('Content-Disposition: attachment; filename=mascotas_usuario_'.date('Ymd_His').'.csv');
-        echo "\xEF\xBB\xBF"; echo "sep=,\n";
-        echo '"Mascota","Tipo","Estado adopción"' . "\n";
-        foreach ($rows as $r){
-            $line = [ $r['mascota'], $r['tipo'], $r['estado_adopcion'] ];
-            $esc = array_map(function($v){ $v=str_replace('"','""',$v); return '"'.$v.'"';}, $line);
-            echo implode(',', $esc) . "\n";
-        }
-    }
-
-    // Reporte: Adopciones por rango (PDF)
-    public function exportar_adopciones_pdf()
-    {
-        $desde = $_GET['fecha_desde'] ?? null; $hasta = $_GET['fecha_hasta'] ?? null;
-        $rows = $this->model->obtenerAdopcionesDetalle($desde, $hasta);
-        $html = '<style>@page{margin:60px 40px} table{width:100%;border-collapse:collapse} th,td{border:1px solid #e5e5e5;padding:6px 8px;font-size:12px} th{background:#f6f8fa;text-align:left} h2{color:#2a9d8f}</style>';
-        $html .= '<h2>Adopciones</h2><p>Rango: '.htmlspecialchars($desde ?: '—').' a '.htmlspecialchars($hasta ?: '—').'</p>';
-        $html .= '<table><tr><th>Fecha</th><th>Estado</th><th>Usuario</th><th>Email</th><th>Mascota</th><th>Tipo</th></tr>';
-        foreach ($rows as $r){
-            $html .= '<tr><td>'.htmlspecialchars($r['fecha_adopcion']).'</td><td>'.htmlspecialchars($r['estado']).'</td><td>'.htmlspecialchars($r['usuario']).'</td><td>'.htmlspecialchars($r['correo']).'</td><td>'.htmlspecialchars($r['mascota']).'</td><td>'.htmlspecialchars($r['tipo']).'</td></tr>';
-        }
-        $html .= '</table>';
-        if (file_exists(__DIR__ . '/../vendor/autoload.php')) { require_once __DIR__ . '/../vendor/autoload.php'; }
-        if (class_exists('Dompdf\\Dompdf')) {
-            $dompdf = new \Dompdf\Dompdf(); $dompdf->loadHtml($html); $dompdf->setPaper('A4', 'landscape'); $dompdf->render();
-            header('Content-Type: application/pdf'); header('Content-Disposition: attachment; filename="adopciones.pdf"'); echo $dompdf->output(); return;
-        }
-        http_response_code(501); echo 'Falta Dompdf';
-    }
-
-    // Reporte: Adopciones por rango (CSV)
-    public function exportar_adopciones_csv()
-    {
-        $desde = $_GET['fecha_desde'] ?? null; $hasta = $_GET['fecha_hasta'] ?? null;
-        $rows = $this->model->obtenerAdopcionesDetalle($desde, $hasta);
-        header('Content-Type: text/csv; charset=UTF-8');
-        header('Content-Disposition: attachment; filename=adopciones_'.date('Ymd_His').'.csv');
-        echo "\xEF\xBB\xBF"; echo "sep=,\n";
-        echo '"Fecha","Estado","Usuario","Email","Mascota","Tipo"' . "\n";
-        foreach ($rows as $r){
-            $line = [ $r['fecha_adopcion'], $r['estado'], $r['usuario'], $r['correo'], $r['mascota'], $r['tipo'] ];
-            $esc = array_map(function($v){ $v=str_replace('"','""',$v); return '"'.$v.'"';}, $line);
-            echo implode(',', $esc) . "\n";
-        }
-    }
 
     // Genera y retorna PNG binario del gráfico según filtros
     private function generarImagenGrafico($filtros = [])
     {
-        // Obtener datos agregados por tipo desde el modelo
-        $stats = $this->model->obtenerEstadisticas();
+        // Construir series filtradas
+        [$labels, $values, $titulo, $total] = $this->prepararDatosGrafico([
+            'filtroTipo'   => $filtros['filtroTipo']   ?? 'todos',
+            'filtroEstado' => $filtros['filtroEstado'] ?? 'todos',
+            'tipoVista'    => $filtros['tipoVista']    ?? 'combinado',
+        ]);
+        if ($total <= 0) return false;
 
-        // Construir un arreglo simple de ejemplo: usar distribución por tipo desde el modelo
-        $distribucion = $stats['distribucion'] ?? [];
-        $map = [];
-        foreach ($distribucion as $row) {
-            $tipo = $row['tipo_nombre'] ?? 'Otro';
-            $cant = (int)($row['cantidad'] ?? 0);
-            if (!isset($map[$tipo])) $map[$tipo] = 0;
-            $map[$tipo] += $cant;
-        }
-
-        // Si no hay datos, retornar false
-        if (empty($map)) return false;
-
-        // Intentar JPGraph si está instalado
+        // Intentar JPGraph
         $jpgraphAutoload = __DIR__ . '/../vendor/jpgraph/src/jpgraph.php';
         $jpgraphDir = __DIR__ . '/../vendor/jpgraph/src';
         if (file_exists($jpgraphAutoload) || class_exists('Graph')) {
             try {
-                // intentar cargar JPGraph desde vendor o desde include_path
                 if (file_exists($jpgraphAutoload)) require_once $jpgraphAutoload;
-                else {
-                    // intentar cargar por ruta relativa si se encuentra instalado fuera
-                    @require_once 'jpgraph/jpgraph.php';
-                }
-
-                // incluir librerías necesarias para pie
-                if (!class_exists('PieChart')) @require_once $jpgraphDir . '/jpgraph_pie.php';
+                else @require_once 'jpgraph/jpgraph.php';
                 if (!class_exists('PiePlot')) @require_once $jpgraphDir . '/jpgraph_pie.php';
 
-                // Preparar datos
-                $labels = array_keys($map);
-                $values = array_values($map);
-
-                $graph = new Graph(700,400,"auto");
-                $graph->SetScale('lin');
+                // NOTA: algunos paquetes usan PieGraph, otros Graph. Si tienes PieGraph, úsalo:
+                if (class_exists('PieGraph')) {
+                    $graph = new \PieGraph(700,400);
+                } else {
+                    $graph = new \Graph(700,400,"auto");
+                    $graph->SetScale('lin');
+                }
                 $graph->img->SetMargin(40,30,20,80);
-                $graph->title->Set('Distribución por Tipo');
+                $graph->title->Set($titulo);
 
-                $p1 = new PiePlot($values);
+                $p1 = new \PiePlot($values);
                 $p1->SetLegends($labels);
-                $p1->ExplodeSlice(0);
                 $graph->Add($p1);
 
-                // Capturar imagen en buffer
                 ob_start();
                 $graph->Stroke(_IMG_HANDLER);
                 $gdImg = $graph->img->img;
                 imagepng($gdImg);
                 $png = ob_get_clean();
                 return $png;
-            } catch (Exception $e) {
-                // si falla jpgraph, caemos a GD
+            } catch (\Throwable $e) {
+                // fallback a GD
             }
         }
 
-        // Fallback simple con GD: generar un pie chart básico
+        // Fallback GD
         if (!function_exists('imagecreatetruecolor')) return false;
-
         $width = 700; $height = 400;
         $im = imagecreatetruecolor($width,$height);
         $white = imagecolorallocate($im,255,255,255);
         imagefill($im,0,0,$white);
 
-        // Colores predefinidos
         $palette = [
             imagecolorallocate($im,54,162,235),
             imagecolorallocate($im,255,99,132),
@@ -322,33 +246,76 @@ class EstadisticasController
             imagecolorallocate($im,255,159,64),
         ];
 
-        $total = array_sum($map);
         $cx = 250; $cy = 200; $r = 150;
-        $start = 0;
-        $i = 0;
-        foreach ($map as $label => $val) {
-            $angle = ($val / $total) * 360;
+        $start = 0; $i = 0;
+        foreach ($values as $v) {
+            $angle = ($v / $total) * 360;
             $color = $palette[$i % count($palette)];
             imagefilledarc($im, $cx, $cy, $r*2, $r*2, $start, $start + $angle, $color, IMG_ARC_PIE);
-            $start += $angle;
-            $i++;
+            $start += $angle; $i++;
         }
 
         // Leyenda
         $x = 480; $y = 40; $i = 0;
         $fontColor = imagecolorallocate($im,0,0,0);
-        foreach ($map as $label => $val) {
+        foreach ($labels as $idx => $label) {
             $color = $palette[$i % count($palette)];
             imagefilledrectangle($im, $x, $y+$i*28, $x+20, $y+16+$i*28, $color);
+            $val = (int)$values[$idx];
             imagestring($im, 3, $x+28, $y-2+$i*28, $label . ' (' . $val . ')', $fontColor);
             $i++;
         }
 
-        ob_start();
-        imagepng($im);
-        $png = ob_get_clean();
-        imagedestroy($im);
+        // Título
+        imagestring($im, 5, 10, 10, $titulo, $fontColor);
+
+        ob_start(); imagepng($im); $png = ob_get_clean(); imagedestroy($im);
         return $png;
+    }
+
+    /**
+     * Devuelve [labels, values, titulo, total] aplicando filtroTipo, filtroEstado y tipoVista
+     */
+    private function prepararDatosGrafico(array $filtros): array
+    {
+        $filtroTipo   = $filtros['filtroTipo']   ?? 'todos';
+        $filtroEstado = $filtros['filtroEstado'] ?? 'todos';
+        $tipoVista    = $filtros['tipoVista']    ?? 'combinado';
+
+        $stats = $this->model->obtenerEstadisticas();
+        $dist  = isset($stats['distribucion']) && is_array($stats['distribucion']) ? $stats['distribucion'] : [];
+
+        // Filtrar por tipo/estado
+        $filtrada = array_values(array_filter($dist, function($it) use ($filtroTipo,$filtroEstado){
+            $okTipo   = ($filtroTipo==='todos')   || (($it['tipo_nombre'] ?? '') === $filtroTipo);
+            $okEstado = ($filtroEstado==='todos') || (($it['estado_adopcion'] ?? '') === $filtroEstado);
+            return $okTipo && $okEstado;
+        }));
+
+        // Agrupar según vista
+        $grupos = [];
+        if ($tipoVista === 'porEstado') {
+            foreach ($filtrada as $it) {
+                $k = $it['estado_adopcion'] ?: 'Sin estado';
+                $grupos[$k] = ($grupos[$k] ?? 0) + (int)$it['cantidad'];
+            }
+        } else { // combinado/porTipo => por tipo
+            foreach ($filtrada as $it) {
+                $k = $it['tipo_nombre'] ?: 'Sin tipo';
+                $grupos[$k] = ($grupos[$k] ?? 0) + (int)$it['cantidad'];
+            }
+        }
+
+        $labels = array_keys($grupos);
+        $values = array_values($grupos);
+        $total  = array_sum($values);
+
+        $parts = [];
+        if ($filtroTipo !== 'todos')   $parts[] = "Tipo: $filtroTipo";
+        if ($filtroEstado !== 'todos') $parts[] = "Estado: $filtroEstado";
+        $titulo = 'Distribución de mascotas' . ($parts ? ' ('.implode(' · ', $parts).')' : '');
+
+        return [$labels, $values, $titulo, $total];
     }
 }
 ?>
