@@ -6,7 +6,7 @@ class Contenido
         "mascota" => "controladores/mascotacontroller.php",
         "tipomascota" => "controladores/tipomascotacontroller.php",
         "adopcion" => "controladores/adopcioncontroller.php", // <-- Nuevo controlador
-        "login" => "controladores/logincontroller.php"
+        "login" => "controladores/logincontroller.php",
         // Elimina "a" => "controladores/adoptantecontroller.php",
         "estadisticas" => "controladores/estadisticascontroller.php"
     ];

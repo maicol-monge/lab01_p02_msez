@@ -31,8 +31,8 @@ class EstadisticasModel
         $result = $this->cn->consulta($sql);
         $stats['mascotas_adoptadas'] = $result[0]['adoptadas'];
 
-        // Total de adoptantes
-        $sql = "SELECT COUNT(*) as total FROM Adoptantes WHERE estado = 'Activo'";
+        // Total de adoptantes (usuarios con rol Cliente)
+        $sql = "SELECT COUNT(*) as total FROM Usuarios WHERE estado = 'Activo' AND rol = 'Cliente'";
         $result = $this->cn->consulta($sql);
         $stats['total_adoptantes'] = $result[0]['total'];
 
@@ -49,11 +49,10 @@ class EstadisticasModel
                 ORDER BY t.nombre, m.estado_adopcion";
         $stats['distribucion'] = $this->cn->consulta($sql);
 
-        // Total de adopciones activas como estadística reciente
+        // Total de adopciones activas (Pendiente o Aprobada)
         $sql = "SELECT COUNT(*) as recientes 
-                FROM Adoptantes 
-                WHERE estado = 'Activo' 
-                AND id_mascota IS NOT NULL";
+        FROM Adopciones 
+        WHERE estado IN ('Pendiente','Aprobada')";
         $result = $this->cn->consulta($sql);
         $stats['adopciones_recientes'] = $result[0]['recientes'];
 

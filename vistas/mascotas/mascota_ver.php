@@ -1,4 +1,3 @@
-<?php
 <?php if ($mascota): ?>
     <div class="card mb-4">
         <div class="row g-0">
