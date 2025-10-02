@@ -45,107 +45,105 @@
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
     const video = document.getElementById('preview');
-    const btnStop = document.getElementById('btnStop');
-    const btnPhoto = document.getElementById('btnPhoto');
-    const fileInput = document.getElementById('fileInput');
-    const info = document.getElementById('info');
-    const canvas = document.getElementById('hiddenCanvas');
-    const ctx = canvas.getContext('2d');
-    let stream = null, rafId = null;
+    <div class="container py-3">
+        <h1 class="h4 mb-3"><i class="fas fa-qrcode me-2"></i>Escanear QR (foto)</h1>
+        <div id="info" class="alert alert-info d-none"></div>
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <p class="text-muted">Toma una foto del código QR o elige una desde tu galería.</p>
+                <button id="btnPhoto" class="btn btn-primary btn-lg"><i class="fas fa-camera me-2"></i>Tomar/Elegir foto</button>
+                <input id="fileInput" type="file" accept="image/*" capture="environment" class="d-none" />
+                <canvas id="hiddenCanvas" class="d-none"></canvas>
+            </div>
+        </div>
+    </div>
 
-    // Polyfill para getUserMedia con prefijos antiguos
-    (function polyfillGetUserMedia() {
-        if (!navigator.mediaDevices) navigator.mediaDevices = {};
-        if (!navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia = function (constraints) {
-                const getUM = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
-                if (!getUM) return Promise.reject(new Error('getUserMedia no soportado'));
-                return new Promise((resolve, reject) => getUM.call(navigator, constraints, resolve, reject));
-            }
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+<script>
+        const btnPhoto = document.getElementById('btnPhoto');
+        const fileInput = document.getElementById('fileInput');
+        const info = document.getElementById('info');
+        const canvas = document.getElementById('hiddenCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function showInfo(msg, type='info') {
+            info.textContent = msg;
+            info.className = 'alert alert-' + (type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info');
         }
-    })();
 
-    const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        function degToRad(d) { return d * Math.PI / 180; }
 
-    async function startCamera() {
-        try {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('API no disponible');
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
-            video.srcObject = stream;
-            await video.play();
-            btnStop.disabled = false;
-            scanLoop();
-        } catch (e) {
-            showInfo('No se pudo acceder a la cámara. Puedes usar el modo foto para escanear el código.\nDetalle: ' + e.message);
+        function drawImageOriented(img, angleDeg, maxW) {
+            // Ajusta tamaño con escala
+            const iw = img.naturalWidth || img.width;
+            const ih = img.naturalHeight || img.height;
+            const scale = Math.min(1, (maxW / Math.max(iw, ih)) || 1);
+            const w = Math.max(1, Math.floor(iw * scale));
+            const h = Math.max(1, Math.floor(ih * scale));
+
+            const angle = ((angleDeg % 360) + 360) % 360; // normaliza
+            const rot90 = angle === 90 || angle === 270;
+            canvas.width = rot90 ? h : w;
+            canvas.height = rot90 ? w : h;
+
+            ctx.save();
+            // mover al centro y rotar
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(degToRad(angle));
+            // dibujar centrado
+            const dw = w;
+            const dh = h;
+            ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+            ctx.restore();
         }
-    }
 
-    function stopCamera() {
-        if (rafId) cancelAnimationFrame(rafId);
-        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-        btnStop.disabled = true;
-    }
-
-    function scanLoop() {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        function tryScanOnce() {
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height);
-            if (code && code.data) return handleCode(code.data);
+            return jsQR(imageData.data, imageData.width, imageData.height);
         }
-        rafId = requestAnimationFrame(scanLoop);
-    }
 
-    function handleCode(data) {
-        stopCamera();
-        let url = data;
-        if (/^\d+$/.test(url)) url = '<?= RUTA; ?>cliente/mascota/' + url;
-        window.location.href = url;
-    }
-
-    function showInfo(msg) {
-        info.textContent = msg;
-        info.classList.remove('d-none');
-    }
-
-    // Modo foto (funciona en HTTP y navegadores sin getUserMedia)
-    btnPhoto.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files && e.target.files[0];
-        if (!file) return;
-        const img = new Image();
-        img.onload = () => {
-            // Redimensiona canvas a la imagen cargada
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height);
-            if (code && code.data) {
-                handleCode(code.data);
-            } else {
-                showInfo('No se detectó un QR en la imagen. Intenta de nuevo con una foto más cercana y bien iluminada.');
+        async function scanWithAttempts(img, exifAngle) {
+            const sizes = [1600, 1280, 1024, 800];
+            const angles = [exifAngle, 0, 90, 180, 270].filter((v, i, a) => a.indexOf(v) === i); // únicos
+            for (const s of sizes) {
+                for (const a of angles) {
+                    drawImageOriented(img, a, s);
+                    const code = tryScanOnce();
+                    if (code && code.data) return code.data.trim();
+                }
             }
-        };
-        img.onerror = () => showInfo('No se pudo leer la imagen seleccionada.');
-        img.src = URL.createObjectURL(file);
-    });
+            return null;
+        }
 
-    btnStop.addEventListener('click', stopCamera);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) stopCamera(); });
+        // Modo foto (único método)
+        btnPhoto.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const img = new Image();
+            img.onload = async () => {
+                // Obtener orientación EXIF si existe
+                let exifAngle = 0;
+                try {
+                    EXIF.getData(img, function() {
+                        const ori = EXIF.getTag(this, 'Orientation');
+                        if (ori === 3) exifAngle = 180;
+                        else if (ori === 6) exifAngle = 90;
+                        else if (ori === 8) exifAngle = 270;
+                    });
+                } catch (_) {}
 
-    // Estrategia: si el contexto no es seguro (HTTP en IP), forzamos modo foto y avisamos.
-    if (!isSecure) {
-        showInfo('Por seguridad del navegador, la cámara del navegador solo funciona en HTTPS o localhost. Puedes: 1) usar el botón "Usar foto", o 2) imprimir QR y escanear con la cámara nativa.');
-    } else {
-        startCamera();
-    }
-
-    // Mostrar botón de app nativa en Android
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    if (isAndroid) {
-        document.getElementById('openNative').classList.remove('d-none');
-    }
+                const data = await scanWithAttempts(img, exifAngle);
+                if (data) {
+                    let url = data;
+                    if (/^\d+$/.test(url)) url = '<?= RUTA; ?>cliente/confirmar/' + url;
+                    window.location.href = url;
+                } else {
+                    showInfo('No se detectó un QR. Tips: llene la pantalla con el código, buena luz y enfoque. Prueba otra toma más cercana.', 'error');
+                }
+            };
+            img.onerror = () => showInfo('No se pudo leer la imagen seleccionada.', 'error');
+            img.src = URL.createObjectURL(file);
+        });
 </script>
