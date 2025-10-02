@@ -155,6 +155,12 @@ class MascotaModel
         ]);
     }
 
+    public function updateEstadoAdopcion($idMascota, $estado)
+    {
+        $sql = "UPDATE Mascotas SET estado_adopcion = ? WHERE id_mascota = ?";
+        return $this->cn->ejecutar($sql, [$estado, $idMascota]);
+    }
+
     public function delete($mascotaObj)
     {
         $sql = "UPDATE Mascotas SET estado = 'Inactivo' WHERE id_mascota = ?";

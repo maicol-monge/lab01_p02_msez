@@ -55,6 +55,22 @@ class AdopcionModel
         return $rows ? $rows[0] : null;
     }
 
+    // Obtener detalle completo para ticket/consulta
+    public function getDetalleById($id)
+    {
+        $sql = "SELECT a.*, 
+                       u.nombre AS usuario_nombre, u.correo AS usuario_correo,
+                       m.nombre AS mascota_nombre, m.foto AS mascota_foto,
+                       t.nombre AS tipo_nombre
+                FROM Adopciones a
+                JOIN Usuarios u ON u.id_usuario = a.id_usuario
+                JOIN Mascotas m ON m.id_mascota = a.id_mascota
+                JOIN TiposMascota t ON t.id_tipo = m.id_tipo
+                WHERE a.id_adopcion = ?";
+        $rows = $this->cn->consulta($sql, [$id]);
+        return $rows ? $rows[0] : null;
+    }
+
     // Insertar nueva adopción
     public function insert($usuarioId, $mascotaId)
     {

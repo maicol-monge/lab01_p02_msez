@@ -1,19 +1,3 @@
-<div class="container py-3">
-    <h1 class="h4 mb-3"><i class="fas fa-qrcode me-2"></i>Escanear QR</h1>
-    <div class="card border-0 shadow-sm">
-        <div class="card-body">
-            <div class="ratio ratio-1x1 mb-2" style="max-width:420px;margin:0 auto;">
-                <video id="preview" playsinline
-                    style="width:100%;height:100%;object-fit:cover;border-radius:.5rem;background:#000"></video>
-            </div>
-            <p class="small text-muted text-center">Apunta la cámara hacia el código QR de la mascota.</p>
-            <div class="text-center">
-                <button id="btnStop" class="btn btn-outline-secondary btn-sm" disabled>Detener</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <div class="container py-3">
     <h1 class="h4 mb-3"><i class="fas fa-qrcode me-2"></i>Escanear QR</h1>
@@ -59,7 +43,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 <script>
         const btnPhoto = document.getElementById('btnPhoto');
         const fileInput = document.getElementById('fileInput');
@@ -137,7 +121,7 @@
                 const data = await scanWithAttempts(img, exifAngle);
                 if (data) {
                     let url = data;
-                    if (/^\d+$/.test(url)) url = '<?= RUTA; ?>cliente/confirmar/' + url;
+            if (/^\d+$/.test(url)) url = '<?= RUTA; ?>index.php?url=cliente/mascota/' + url;
                     window.location.href = url;
                 } else {
                     showInfo('No se detectó un QR. Tips: llene la pantalla con el código, buena luz y enfoque. Prueba otra toma más cercana.', 'error');

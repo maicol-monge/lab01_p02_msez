@@ -11,14 +11,25 @@
             <h1 class="h4 mb-3">QR para <?= htmlspecialchars($mascota->getNomMascota()) ?></h1>
             <p class="text-muted mb-3">Escanea con la cámara del teléfono para ver la información de la mascota.</p>
             <?php
+            // Reescribir a front controller para asegurar layout completo
+            $scanUrl = $url;
+            // Si es detalle por id
+            if (preg_match('#/cliente/mascota/\d+$#', $url)) {
+                $id = preg_replace('#.*?/cliente/mascota/(\d+)$#', '$1', $url);
+                $scanUrl = RUTA . 'index.php?url=cliente/mascota/' . $id;
+            }
+            // Si es QR por token
+            if (strpos($url, 'cliente/qr') !== false && strpos($url, 'code=') !== false) {
+                $scanUrl = RUTA . 'index.php?url=cliente/qr&' . parse_url($url, PHP_URL_QUERY);
+            }
             // Generamos imagen de QR vía API de QuickChart (sin dependencia local)
-            $qrApi = 'https://quickchart.io/qr?text=' . urlencode($url) . '&margin=1&size=320&dark=000000&light=ffffff';
+            $qrApi = 'https://quickchart.io/qr?text=' . urlencode($scanUrl) . '&margin=1&size=320&dark=000000&light=ffffff';
             ?>
             <img src="<?= $qrApi ?>" alt="QR" class="img-fluid" style="max-width: 320px;" />
             <div class="mt-3">
                 <div class="small text-muted">URL destino:</div>
-                <div class="small"><a href="<?= htmlspecialchars($url) ?>"
-                        target="_blank"><?= htmlspecialchars($url) ?></a></div>
+                <div class="small"><a href="<?= htmlspecialchars($scanUrl) ?>"
+                        target="_blank"><?= htmlspecialchars($scanUrl) ?></a></div>
             </div>
             <div class="mt-4">
                 <button class="btn btn-primary" onclick="window.print()"><i

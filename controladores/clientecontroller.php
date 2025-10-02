@@ -52,8 +52,8 @@ class clientecontroller
             exit;
         }
         if (ctype_digit($code)) {
-            // Si es un ID, redirigimos a confirmar adopción
-            header('Location: ' . RUTA . 'cliente/confirmar/' . $code);
+            // Si es un ID, redirigimos al detalle pasando por el front controller
+            header('Location: ' . RUTA . 'index.php?url=cliente/mascota/' . $code);
             exit;
         } else {
             $mascota = $this->mascotaModel->getByQrCode($code);

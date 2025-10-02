@@ -28,6 +28,15 @@
                             <span class="badge <?= $badge ?>"><?= htmlspecialchars($s['estado']) ?></span>
                         </div>
                     </div>
+                    <div class="mt-2 text-end">
+                        <?php if (in_array($s['estado'], ['Aprobada', 'Rechazada'])): ?>
+                            <a class="btn btn-outline-primary btn-sm" href="<?= RUTA; ?>adopcion/ticket/<?= $s['id_adopcion'] ?>">
+                                <i class="fas fa-receipt me-1"></i> Ver/Imprimir ticket
+                            </a>
+                        <?php else: ?>
+                            <span class="text-muted small">Ticket no disponible</span>
+                        <?php endif; ?>
+                    </div>
                 </div>
             <?php endforeach; ?>
         </div>
