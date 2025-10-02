@@ -35,6 +35,35 @@ if (!isset($_SESSION['usuario'])) {
 
 $contenido = new Contenido();
 
+// Despacho temprano para descargas (PDF/Excel) antes de imprimir HTML
+if (isset($_GET['url'])) {
+    $datosEarly = explode('/', $_GET['url']);
+    $paginaEarly = $datosEarly[0] ?? '';
+    $accionEarly = $datosEarly[1] ?? 'index';
+    $rawEndpoints = [
+        'estadisticas' => [
+            'exportar_pdf', 'exportar_datos_pdf', 'exportar_excel',
+            'exportar_mascotas_usuario_pdf', 'exportar_mascotas_usuario_csv',
+            'exportar_adopciones_pdf', 'exportar_adopciones_csv'
+        ],
+    ];
+    if (isset($rawEndpoints[$paginaEarly]) && in_array($accionEarly, $rawEndpoints[$paginaEarly])) {
+        require_once $contenido->obtenerContenido($paginaEarly);
+        $nombreClaseEarly = $paginaEarly . 'controller';
+        if (class_exists($nombreClaseEarly)) {
+            $controladorEarly = new $nombreClaseEarly();
+            if (method_exists($controladorEarly, $accionEarly)) {
+                if (isset($datosEarly[2])) {
+                    $controladorEarly->{$accionEarly}($datosEarly[2]);
+                } else {
+                    $controladorEarly->{$accionEarly}();
+                }
+                exit; // evitar imprimir la plantilla
+            }
+        }
+    }
+}
+
 ?>
 
 <!doctype html>

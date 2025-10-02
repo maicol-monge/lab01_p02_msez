@@ -1,4 +1,15 @@
 <div class="container py-4">
+    <style>
+        /* Mantener tamaño estable del gráfico */
+        .chart-wrap {
+            position: relative;
+            height: 340px; /* altura fija del contenedor */
+        }
+        #graficoDistribucion {
+            width: 100% !important;
+            height: 100% !important;
+        }
+    </style>
     <div class="row mb-4">
         <div class="col-12">
             <h1 class="h2 mb-4 text-center">
@@ -62,6 +73,9 @@
         </div>
     </div>
 
+    <!-- Reportes (Datos) -->
+    <!-- Sección eliminada por solicitud -->
+
     <!-- Distribución de Mascotas -->
     <div class="row mb-4">
         <div class="col-md-12">
@@ -101,6 +115,9 @@
                             </select>
                         </div>
                     </div>
+
+                    <!-- Nota aclaratoria bajo los filtros de Distribución -->
+                    <p class="text-muted small mb-2">Nota: este gráfico no usa rango de fechas; refleja únicamente los filtros seleccionados arriba.</p>
 
                     <div class="table-responsive">
                         <table class="table" id="tablaDistribucion">
@@ -145,6 +162,25 @@
                         </table>
                     </div>
 
+                    <!-- Gráfico -->
+                    <div class="row mt-4">
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="chart-wrap">
+                                        <canvas id="graficoDistribucion"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div id="chartAlert" class="alert alert-warning d-none" role="alert"></div>
+                            <div class="d-grid gap-2">
+                                <button id="btnExportPDF" class="btn btn-danger">Gráfico: PDF</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <script>
                         document.addEventListener('DOMContentLoaded', function () {
                             const filtroTipo = document.getElementById('filtroTipo');
@@ -152,11 +188,20 @@
                             const tipoVista = document.getElementById('tipoVista');
                             const tabla = document.getElementById('tablaDistribucion');
                             const filas = tabla.querySelectorAll('tbody tr');
+                            const chartAlert = document.getElementById('chartAlert');
+
+                            let totalVisibleActual = 0;
+                            function showChartMsg(msg, type='warning', timeout=3500){
+                                chartAlert.className = 'alert alert-'+type;
+                                chartAlert.textContent = msg;
+                                chartAlert.classList.remove('d-none');
+                                if (timeout){ setTimeout(()=> chartAlert.classList.add('d-none'), timeout); }
+                            }
+                            function clearChartMsg(){ chartAlert.classList.add('d-none'); }
 
                             function actualizarTabla() {
                                 const tipoSeleccionado = filtroTipo.value;
                                 const estadoSeleccionado = filtroEstado.value;
-                                const vistaSeleccionada = tipoVista.value;
 
                                 let totalVisible = 0;
                                 let filasVisibles = [];
@@ -169,7 +214,9 @@
 
                                     if (mostrarPorTipo && mostrarPorEstado) {
                                         fila.style.display = '';
-                                        const cantidad = parseInt(fila.querySelector('td:nth-child(3)').textContent.replace(',', ''));
+                                        const cantidad = parseInt(
+                                            fila.querySelector('td:nth-child(3)').textContent.replace(/,/g, '')
+                                        ) || 0;
                                         totalVisible += cantidad;
                                         filasVisibles.push(fila);
                                     } else {
@@ -177,28 +224,146 @@
                                     }
                                 });
 
-                                // Actualizar porcentajes
+                                totalVisibleActual = totalVisible;
+
                                 filasVisibles.forEach(fila => {
-                                    const cantidad = parseInt(fila.querySelector('td:nth-child(3)').textContent.replace(',', ''));
-                                    const porcentaje = (cantidad / totalVisible * 100).toFixed(1);
+                                    const cantidad = parseInt(
+                                        fila.querySelector('td:nth-child(3)').textContent.replace(/,/g, '')
+                                    ) || 0;
+                                    const porcentaje = totalVisible > 0 ? (cantidad / totalVisible * 100).toFixed(1) : 0;
                                     const progressBar = fila.querySelector('.progress-bar');
                                     progressBar.style.width = porcentaje + '%';
                                     progressBar.textContent = porcentaje + '%';
                                 });
                             }
 
-                            filtroTipo.addEventListener('change', actualizarTabla);
-                            filtroEstado.addEventListener('change', actualizarTabla);
-                            tipoVista.addEventListener('change', actualizarTabla);
+                            // Chart.js
+                            (function loadChartJs(){
+                                if (typeof Chart === 'undefined'){
+                                    var s = document.createElement('script');
+                                    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+                                    s.onload = initChart;
+                                    document.head.appendChild(s);
+                                } else {
+                                    initChart();
+                                }
+                            })();
 
-                            // Inicializar la tabla
-                            actualizarTabla();
+                            let chartInstance = null;
+
+                            function buildChart(){
+                                const filasVisibles = Array.from(tabla.querySelectorAll('tbody tr'))
+                                    .filter(r=> r.style.display !== 'none');
+                                const vista = tipoVista.value;
+                                let labels = [];
+                                let values = [];
+
+                                if (vista === 'porTipo' || vista === 'combinado'){
+                                    const mapa = {};
+                                    filasVisibles.forEach(fila=>{
+                                        const tipo = fila.dataset.tipo;
+                                        const cantidad = parseInt(
+                                            fila.querySelector('td:nth-child(3)').textContent.replace(/,/g, '')
+                                        ) || 0;
+                                        mapa[tipo] = (mapa[tipo]||0) + cantidad;
+                                    });
+                                    labels = Object.keys(mapa);
+                                    values = labels.map(l=> mapa[l]);
+                                }
+
+                                if (vista === 'porEstado'){
+                                    const mapa = {};
+                                    filasVisibles.forEach(fila=>{
+                                        const estado = fila.dataset.estado;
+                                        const cantidad = parseInt(
+                                            fila.querySelector('td:nth-child(3)').textContent.replace(/,/g, '')
+                                        ) || 0;
+                                        mapa[estado] = (mapa[estado]||0) + cantidad;
+                                    });
+                                    labels = Object.keys(mapa);
+                                    values = labels.map(l=> mapa[l]);
+                                }
+
+                                const ctx = document.getElementById('graficoDistribucion').getContext('2d');
+                                const colors = [
+                                    'rgba(78,128,152,0.8)','rgba(244,162,97,0.8)','rgba(42,157,143,0.8)',
+                                    'rgba(231,111,81,0.8)','rgba(94,96,206,0.8)','rgba(255,193,7,0.8)'
+                                ];
+                                const bgColors = labels.map((_,i)=> colors[i % colors.length]);
+                                const borderColors = bgColors.map(c=> c.replace('0.8','1'));
+
+                                const data = {
+                                    labels,
+                                    datasets: [{
+                                        label: 'Cantidad',
+                                        data: values,
+                                        backgroundColor: bgColors,
+                                        borderColor: borderColors,
+                                        borderWidth: 1,
+                                        hoverOffset: 0
+                                    }]
+                                };
+
+                                const options = {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    animation: false,
+                                    resizeDelay: 0,
+                                    plugins: { legend: { position: 'bottom' }, tooltip: { enabled: true } },
+                                    interaction: { mode: 'nearest', intersect: true }
+                                };
+
+                                if (chartInstance){
+                                    chartInstance.data = data;
+                                    chartInstance.options = options;
+                                    chartInstance.update();
+                                } else {
+                                    chartInstance = new Chart(ctx, { type: 'pie', data, options });
+                                }
+                            }
+
+                            function initChart(){
+                                actualizarTabla();
+                                buildChart();
+                            }
+
+                            const onChange = ()=>{ actualizarTabla(); buildChart(); };
+                            filtroTipo.addEventListener('change', onChange);
+                            filtroEstado.addEventListener('change', onChange);
+                            tipoVista.addEventListener('change', onChange);
+
+                            // Eliminado: botones y validaciones de reportes (fechas/usuario)
+                            // Solo queda el botón de Gráfico: PDF, manejado por el form oculto de abajo.
                         });
                     </script>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Form oculto: solo filtros del gráfico -->
+    <form id="formGrafPdf" action="<?= RUTA; ?>estadisticas/exportar_pdf" method="post" target="_blank" style="display:none">
+        <input type="hidden" name="filtroTipo" />
+        <input type="hidden" name="filtroEstado" />
+        <input type="hidden" name="tipoVista" />
+    </form>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function(){
+        const filtroTipo   = document.getElementById('filtroTipo');
+        const filtroEstado = document.getElementById('filtroEstado');
+        const tipoVista    = document.getElementById('tipoVista');
+        const btnGrafPdf   = document.getElementById('btnExportPDF');
+        const formGrafPdf  = document.getElementById('formGrafPdf');
+
+        btnGrafPdf.addEventListener('click', function(){
+            formGrafPdf.elements.filtroTipo.value   = filtroTipo?.value   || 'todos';
+            formGrafPdf.elements.filtroEstado.value = filtroEstado?.value || 'todos';
+            formGrafPdf.elements.tipoVista.value    = tipoVista?.value    || 'combinado';
+            formGrafPdf.submit();
+        });
+    });
+    </script>
 
     <!-- Llamado a la Acción -->
     <div class="row">

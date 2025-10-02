@@ -58,5 +58,74 @@ class EstadisticasModel
 
         return $stats;
     }
+
+    // Listado de usuarios activos (para filtros)
+    public function obtenerUsuariosActivos()
+    {
+        $sql = "SELECT id_usuario, nombre, correo FROM Usuarios WHERE estado = 'Activo' ORDER BY nombre";
+        return $this->cn->consulta($sql);
+    }
+
+    // Mascotas de un usuario (adoptadas por ese usuario)
+    public function obtenerMascotasPorUsuario($idUsuario)
+    {
+        $sql = "SELECT m.id_mascota, m.nombre AS mascota, t.nombre AS tipo, m.estado_adopcion
+                FROM Adopciones a
+                INNER JOIN Mascotas m ON a.id_mascota = m.id_mascota
+                INNER JOIN TiposMascota t ON m.id_tipo = t.id_tipo
+                WHERE a.id_usuario = :id AND a.estado IN ('Aprobada','Finalizada')
+                ORDER BY t.nombre, m.nombre";
+        return $this->cn->consulta($sql, [':id' => $idUsuario]);
+    }
+
+    // Adopciones detalle en rango de fechas
+    public function obtenerAdopcionesDetalle($desde = null, $hasta = null, $estados = ['Pendiente','Aprobada','Rechazada','Finalizada'])
+    {
+        $params = [];
+        $wheres = [];
+        if ($desde) { $wheres[] = 'a.fecha_adopcion >= :desde'; $params[':desde'] = $desde . ' 00:00:00'; }
+        if ($hasta) { $wheres[] = 'a.fecha_adopcion <= :hasta'; $params[':hasta'] = $hasta . ' 23:59:59'; }
+        if ($estados && count($estados)>0) {
+            $in = [];
+            foreach ($estados as $i=>$st){ $in[] = ':st'.$i; $params[':st'.$i] = $st; }
+            $wheres[] = 'a.estado IN ('.implode(',', $in).')';
+        }
+        $whereSql = count($wheres) ? ('WHERE '.implode(' AND ',$wheres)) : '';
+
+        $sql = "SELECT a.id_adopcion, a.fecha_adopcion, a.estado,
+                        u.nombre AS usuario, u.correo,
+                        m.nombre AS mascota, t.nombre AS tipo
+                FROM Adopciones a
+                INNER JOIN Usuarios u ON a.id_usuario = u.id_usuario
+                INNER JOIN Mascotas m ON a.id_mascota = m.id_mascota
+                INNER JOIN TiposMascota t ON m.id_tipo = t.id_tipo
+                $whereSql
+                ORDER BY a.fecha_adopcion DESC";
+        return $this->cn->consulta($sql, $params);
+    }
+
+    // Adopciones por tipo en rango (agrupado)
+    public function obtenerAdopcionesPorTipo($desde = null, $hasta = null, $estados = ['Pendiente','Aprobada','Rechazada','Finalizada'])
+    {
+        $params = [];
+        $wheres = [];
+        if ($desde) { $wheres[] = 'a.fecha_adopcion >= :desde'; $params[':desde'] = $desde . ' 00:00:00'; }
+        if ($hasta) { $wheres[] = 'a.fecha_adopcion <= :hasta'; $params[':hasta'] = $hasta . ' 23:59:59'; }
+        if ($estados && count($estados)>0) {
+            $in = [];
+            foreach ($estados as $i=>$st){ $in[] = ':st'.$i; $params[':st'.$i] = $st; }
+            $wheres[] = 'a.estado IN ('.implode(',', $in).')';
+        }
+        $whereSql = count($wheres) ? ('WHERE '.implode(' AND ',$wheres)) : '';
+
+        $sql = "SELECT t.nombre AS tipo, COUNT(*) AS cantidad
+                FROM Adopciones a
+                INNER JOIN Mascotas m ON a.id_mascota = m.id_mascota
+                INNER JOIN TiposMascota t ON m.id_tipo = t.id_tipo
+                $whereSql
+                GROUP BY t.id_tipo, t.nombre
+                ORDER BY t.nombre";
+        return $this->cn->consulta($sql, $params);
+    }
 }
 ?>
