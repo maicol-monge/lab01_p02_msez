@@ -15,7 +15,7 @@ class MascotaModel
 
     public function search($filters = [])
     {
-        $sql = "SELECT m.id_mascota, m.nombre, m.foto, m.id_tipo, m.estado_adopcion,
+        $sql = "SELECT m.id_mascota, m.nombre, m.foto, m.id_tipo, m.estado_adopcion, m.qr_code,
                        t.nombre AS tipo_nombre, t.descripcion
                 FROM Mascotas m
                 JOIN TiposMascota t ON t.id_tipo = m.id_tipo
@@ -46,6 +46,16 @@ class MascotaModel
             $tipo = new TipoMascota($row['id_tipo'], $row['tipo_nombre'], $row['descripcion']);
             $mascota = new Mascota($row['id_mascota'], $row['id_tipo'], $row['nombre'], $row['foto'], $tipo);
             $mascota->setEstadoAdopcion($row['estado_adopcion']);
+
+            // asignar qr_code si viene en la fila
+            if (isset($row['qr_code'])) {
+                if (method_exists($mascota, 'setQrCode')) {
+                    $mascota->setQrCode($row['qr_code']);
+                } elseif (property_exists($mascota, 'qr_code')) {
+                    $mascota->qr_code = $row['qr_code'];
+                }
+            }
+
             $mascotas[] = $mascota;
         }
         return $mascotas;
@@ -68,6 +78,16 @@ class MascotaModel
             $tipo = new TipoMascota($row['id_tipo'], $row['tipo_nombre'], $row['descripcion']);
             $mascota = new Mascota($row['id_mascota'], $row['id_tipo'], $row['nombre'], $row['foto'], $tipo);
             $mascota->setEstadoAdopcion($row['estado_adopcion']);
+
+            // asignar qr_code si existe en la fila
+            if (isset($row['qr_code'])) {
+                if (method_exists($mascota, 'setQrCode')) {
+                    $mascota->setQrCode($row['qr_code']);
+                } elseif (property_exists($mascota, 'qr_code')) {
+                    $mascota->qr_code = $row['qr_code'];
+                }
+            }
+
             return $mascota;
         }
         return null;
@@ -78,11 +98,20 @@ class MascotaModel
         $sql = "INSERT INTO Mascotas (id_tipo, nombre, foto, estado, estado_adopcion) 
                 VALUES (?, ?, ?, 'Activo', 'Disponible')";
         $foto = method_exists($mascotaObj, 'getFoto') ? $mascotaObj->getFoto() : '';
-        return $this->cn->ejecutar($sql, [
+        $this->cn->ejecutar($sql, [
             $mascotaObj->getIdTipo(),
             $mascotaObj->getNomMascota(),
             $foto
         ]);
+        // Retorna el último ID insertado
+        return $this->cn->getConexion()->lastInsertId();
+    }
+
+    // Nuevo método para guardar la ruta del QR
+    public function updateQR($id_mascota, $qr_path)
+    {
+        $sql = "UPDATE Mascotas SET qr_code = ? WHERE id_mascota = ?";
+        return $this->cn->ejecutar($sql, [$qr_path, $id_mascota]);
     }
 
     public function update($mascotaObj)

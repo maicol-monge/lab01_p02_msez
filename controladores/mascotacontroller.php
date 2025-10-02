@@ -1,6 +1,7 @@
 <?php
 require_once 'modelos/mascotamodel.php';
 require_once 'modelos/tipomascotamodel.php';
+require_once "libs/phpqrcode/phpqrcode.php";
 
 class MascotaController
 {
@@ -44,14 +45,54 @@ class MascotaController
 
     public function store()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            // Campos esperados: id_tipo (alias idraza legacy), nombre (alias nom_mascota), foto
-            $idTipo = $_POST['id_tipo'] ?? ($_POST['idraza'] ?? null);
-            $nombre = $_POST['nombre'] ?? ($_POST['nom_mascota'] ?? '');
-            $foto = $_POST['foto'] ?? '';
-            $mascota = new Mascota(null, $idTipo, $nombre, $foto, null);
-            $this->mascotaModel->insert($mascota);
-            $this->index();
+        $id_tipo = $_POST['id_tipo'] ?? '';
+        $nombre = $_POST['nombre'] ?? '';
+        $foto = $_POST['foto'] ?? '';
+        $descripcion = $_POST['descripcion'] ?? '';
+
+        $mascota = new Mascota(null, $id_tipo, $nombre, $foto, $descripcion);
+        $id_mascota = $this->mascotaModel->insert($mascota);
+
+        if ($id_mascota) {
+            // Ruta absoluta para guardar la imagen QR
+            $projectRoot = realpath(__DIR__ . '/../') . DIRECTORY_SEPARATOR;
+            $qrDir = $projectRoot . 'assets' . DIRECTORY_SEPARATOR . 'qrs' . DIRECTORY_SEPARATOR;
+
+            if (!is_dir($qrDir)) {
+                mkdir($qrDir, 0755, true);
+            }
+
+            $qrFilename = 'mascota_' . $id_mascota . '.png';
+            $qrFullPath = $qrDir . $qrFilename;              // ruta física
+            $qrWebPath  = 'assets/qrs/' . $qrFilename;      // ruta para guardar en DB
+
+            $url = RUTA . 'mascota/ver/' . $id_mascota;
+
+            // Generar QR: suprimir warnings con @ y validar que el archivo fue creado
+            try {
+                // Asegúrate GD esté habilitado en php.ini; usamos @ para que no imprima warnings
+                @QRcode::png($url, $qrFullPath, QR_ECLEVEL_L, 4);
+            } catch (Exception $e) {
+                // opcional: registrar error en log
+            }
+
+            // Verifica que el archivo se creó antes de actualizar la BD
+            if (file_exists($qrFullPath)) {
+                $this->mascotaModel->updateQR($id_mascota, $qrWebPath);
+            }
+
+            // redirección segura: evita "headers already sent"
+            if (!headers_sent($file, $line)) {
+                header('Location: ' . RUTA . 'mascota');
+                exit;
+            } else {
+                error_log("No se pudo redirigir a " . RUTA . "mascota — salida ya enviada en $file en la línea $line");
+                // Fallback: muestra la lista sin usar header (no imprimir nada adicional)
+                $this->index();
+                return;
+            }
+        } else {
+            include 'vistas/mascotas/create.php';
         }
     }
 
