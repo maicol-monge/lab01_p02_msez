@@ -4,14 +4,15 @@ class Contenido {
     public static $contenido = [        
         "mascota" => "controladores/mascotacontroller.php",
         "tipomascota" => "controladores/tipomascotacontroller.php",
-        "adoptante" => "controladores/adoptantecontroller.php"
+        "adopcion" => "controladores/adopcioncontroller.php", // <-- Nuevo controlador
+        "login" => "controladores/logincontroller.php"
+        // Elimina "a" => "controladores/adoptantecontroller.php"
     ];    
 
     public static function obtenerContenido($clave) {
-        $vista=self::$contenido[$clave] ?? null;
+        $vista = self::$contenido[$clave] ?? null;
         return $vista ?: "vistas/404.php";                
     }
-
 }
 
 ?>

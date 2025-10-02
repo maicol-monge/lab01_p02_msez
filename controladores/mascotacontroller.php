@@ -83,5 +83,11 @@ class MascotaController
         }
         $this->index();
     }
+
+    public function ver($id)
+    {
+        $mascota = $this->mascotaModel->getById($id);
+        require "vistas/mascotas/mascota_ver.php";
+    }
 }
 ?>

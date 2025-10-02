@@ -1,7 +1,18 @@
 <?php
-define("RUTA", "http://localhost/lab01_p02_msez/");
+//define("RUTA", "http://localhost/lab01_p02_msez/");
+define("RUTA", "http://localhost/CICLO8_Desarrollo_Web_Multiplataforma/lab01_p02_msez/");
 //archivos de configuracion
 require_once "config/rutas.php";
+session_start();
+
+// Redirige al login si no está autenticado y no está accediendo al login
+if (
+    !isset($_SESSION['usuario']) &&
+    (!isset($_GET['url']) || strpos($_GET['url'], 'login') !== 0)
+) {
+    header("Location: " . RUTA . "login");
+    exit;
+}
 
 //objetos 
 
@@ -85,11 +96,23 @@ $contenido = new Contenido();
                                 <i class="fas fa-tags me-1"></i> Categorías
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?= RUTA; ?>adoptante">
-                                <i class="fas fa-heart me-1"></i> Adoptantes
-                            </a>
-                        </li>
+                        <!-- Quita el enlace de Adoptantes si ya no existe -->
+                        <?php if (isset($_SESSION['usuario'])): ?>
+                            <li class="nav-item">
+                                <span class="nav-link">Hola, <?= $_SESSION['usuario']['nombre']; ?> (<?= $_SESSION['usuario']['rol']; ?>)</span>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="<?= RUTA; ?>login/logout">
+                                    <i class="fas fa-sign-out-alt me-1"></i> Cerrar sesión
+                                </a>
+                            </li>
+                        <?php else: ?>
+                            <li class="nav-item">
+                                <a class="nav-link" href="<?= RUTA; ?>login">
+                                    <i class="fas fa-sign-in-alt me-1"></i> Iniciar sesión
+                                </a>
+                            </li>
+                        <?php endif; ?>
                     </ul>
                 </div>
             </div>
