@@ -21,15 +21,4 @@ if (isset($error)) {
     </div>
 </div>
 
-<?php if (isset($_SESSION['usuario'])): ?>
-    <li class="nav-item">
-        <span class="nav-link">Hola, <?= $_SESSION['usuario']['nombre']; ?> (<?= $_SESSION['usuario']['rol']; ?>)</span>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link" href="<?= RUTA; ?>login/logout">Cerrar sesión</a>
-    </li>
-<?php else: ?>
-    <li class="nav-item">
-        <a class="nav-link" href="<?= RUTA; ?>login">Iniciar sesión</a>
-    </li>
-<?php endif; ?>
+<!-- El navbar ya maneja los enlaces de sesión -->

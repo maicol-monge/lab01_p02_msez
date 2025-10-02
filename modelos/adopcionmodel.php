@@ -28,6 +28,10 @@ class AdopcionModel
             $sql .= " AND u.nombre LIKE ?";
             $params[] = "%" . $filters['usuario'] . "%";
         }
+        if (!empty($filters['usuarioId'])) {
+            $sql .= " AND u.id_usuario = ?";
+            $params[] = $filters['usuarioId'];
+        }
         if (!empty($filters['mascota'])) {
             $sql .= " AND m.nombre LIKE ?";
             $params[] = "%" . $filters['mascota'] . "%";
@@ -56,6 +60,20 @@ class AdopcionModel
     {
         $sql = "INSERT INTO Adopciones (id_usuario, id_mascota) VALUES (?, ?)";
         return $this->cn->ejecutar($sql, [$usuarioId, $mascotaId]);
+    }
+
+    // Verificar si un usuario ya tiene solicitud para una mascota
+    public function existeSolicitudUsuarioMascota($usuarioId, $mascotaId): bool
+    {
+        $sql = "SELECT 1 FROM Adopciones WHERE id_usuario = ? AND id_mascota = ? LIMIT 1";
+        $rows = $this->cn->consulta($sql, [$usuarioId, $mascotaId]);
+        return !empty($rows);
+    }
+
+    // Listar solicitudes por usuario
+    public function listarPorUsuario($usuarioId)
+    {
+        return $this->search(['usuarioId' => $usuarioId]);
     }
 
     // Actualizar estado de adopción

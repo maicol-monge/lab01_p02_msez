@@ -1,18 +1,27 @@
 <?php
 require_once "modelos/adopcionmodel.php";
-class adopcioncontroller {
-    public function index() {
+class adopcioncontroller
+{
+    public function index()
+    {
         require_once "vistas/adopcion/index.php";
     }
 
-    public function adoptar() {
+    public function adoptar()
+    {
         if (
             isset($_SESSION['usuario']) &&
             $_SESSION['usuario']['rol'] === 'Cliente' &&
             isset($_POST['id_mascota'])
         ) {
             $adopcionModel = new AdopcionModel();
-            $adopcionModel->insert($_SESSION['usuario']['id_usuario'], $_POST['id_mascota']);
+            $uid = $_SESSION['usuario']['id_usuario'];
+            $mid = (int) $_POST['id_mascota'];
+            if ($adopcionModel->existeSolicitudUsuarioMascota($uid, $mid)) {
+                header("Location: index.php?url=cliente/mascota/$mid&msg=ya_solicitada");
+                exit;
+            }
+            $adopcionModel->insert($uid, $mid);
             header("Location: index.php?url=adopcion&msg=solicitud_enviada");
             exit;
         } else {
@@ -21,7 +30,8 @@ class adopcioncontroller {
         }
     }
 
-    public function aprobar() {
+    public function aprobar()
+    {
         if (
             isset($_SESSION['usuario']) &&
             $_SESSION['usuario']['rol'] === 'Administrador' &&
@@ -34,7 +44,8 @@ class adopcioncontroller {
         }
     }
 
-    public function rechazar() {
+    public function rechazar()
+    {
         if (
             isset($_SESSION['usuario']) &&
             $_SESSION['usuario']['rol'] === 'Administrador' &&

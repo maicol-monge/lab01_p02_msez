@@ -89,5 +89,20 @@ class MascotaController
         $mascota = $this->mascotaModel->getById($id);
         require "vistas/mascotas/mascota_ver.php";
     }
+
+    // Página para imprimir QR (admin)
+    public function qr($id)
+    {
+        // seguridad mínima: solo admin
+        if (!isset($_SESSION['usuario']) || $_SESSION['usuario']['rol'] !== 'Administrador') {
+            header('Location: ' . RUTA . 'login');
+            exit;
+        }
+        $mascota = $this->mascotaModel->getById($id);
+        $qrValue = $this->mascotaModel->getQrCodeValue($id);
+        // Construir URL a abrir desde la cámara nativa: si existe token QR usar /cliente/qr?code=TOKEN, si no usar /cliente/mascota/{id}
+        $url = RUTA . ($qrValue ? ('cliente/qr?code=' . urlencode($qrValue)) : ('cliente/mascota/' . $id));
+        require 'vistas/mascotas/qr.php';
+    }
 }
 ?>

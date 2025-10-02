@@ -7,13 +7,15 @@ class Contenido
         "tipomascota" => "controladores/tipomascotacontroller.php",
         "adopcion" => "controladores/adopcioncontroller.php", // <-- Nuevo controlador
         "login" => "controladores/logincontroller.php",
+        "cliente" => "controladores/clientecontroller.php",
         // Elimina "a" => "controladores/adoptantecontroller.php",
         "estadisticas" => "controladores/estadisticascontroller.php"
     ];
 
-    public static function obtenerContenido($clave) {
-        $vista=self::$contenido[$clave] ?? null;
-        return $vista ?: "vistas/404.php";                
+    public static function obtenerContenido($clave)
+    {
+        $vista = self::$contenido[$clave] ?? null;
+        return $vista ?: "vistas/404.php";
     }
 }
 

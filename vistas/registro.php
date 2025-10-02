@@ -9,7 +9,7 @@
             <div class="alert alert-danger"><?= $error; ?></div>
         <?php endif; ?>
 
-        <form method="POST" action="index.php?url=login/guardarRegistro">
+        <form method="POST" action="?url=login/guardarRegistro">
             <div class="mb-3">
                 <label for="nombre" class="form-label">Nombre completo</label>
                 <input type="text" class="form-control" id="nombre" name="nombre" required

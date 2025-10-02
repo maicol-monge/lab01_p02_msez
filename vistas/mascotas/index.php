@@ -125,13 +125,17 @@ FOREIGN KEY (idraza) REFERENCES raza(idraza)
                             </span>
                         </div>
 
-                        <div class="d-flex justify-content-end gap-2">
+                        <div class="d-flex justify-content-end gap-2 flex-wrap">
                             <?php if ($mascota->getEstadoAdopcion() === 'Disponible'): ?>
                                 <a href="<?= RUTA; ?>adoptante/create?id_mascota=<?= $mascota->getIdmascota(); ?>" 
                                    class="btn btn-success btn-sm">
                                     <i class="fas fa-heart me-1"></i>Adoptar
                                 </a>
                             <?php endif; ?>
+                            <a href="<?= RUTA; ?>mascota/qr/<?= $mascota->getIdmascota(); ?>"
+                               class="btn btn-secondary btn-sm">
+                                <i class="fas fa-qrcode me-1"></i>QR
+                            </a>
                             <a href="<?= RUTA; ?>mascota/edit/<?= $mascota->getIdmascota(); ?>"
                                 class="btn btn-outline-primary btn-sm">
                                 <i class="fas fa-edit me-1"></i>Editar

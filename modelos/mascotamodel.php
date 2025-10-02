@@ -73,6 +73,32 @@ class MascotaModel
         return null;
     }
 
+    public function getByQrCode($qr)
+    {
+        $sql = "SELECT m.*, t.nombre AS tipo_nombre, t.descripcion 
+                FROM Mascotas m 
+                JOIN TiposMascota t ON t.id_tipo = m.id_tipo 
+                WHERE m.qr_code = ? AND m.estado = 'Activo'";
+        $results = $this->cn->consulta($sql, [$qr]);
+        if (!empty($results)) {
+            $row = $results[0];
+            $tipo = new TipoMascota($row['id_tipo'], $row['tipo_nombre'], $row['descripcion']);
+            $mascota = new Mascota($row['id_mascota'], $row['id_tipo'], $row['nombre'], $row['foto'], $tipo);
+            $mascota->setEstadoAdopcion($row['estado_adopcion']);
+            return $mascota;
+        }
+        return null;
+    }
+
+    public function getQrCodeValue($id)
+    {
+        $rows = $this->cn->consulta("SELECT qr_code FROM Mascotas WHERE id_mascota = ?", [$id]);
+        if ($rows && isset($rows[0]['qr_code']) && $rows[0]['qr_code'] !== null && $rows[0]['qr_code'] !== '') {
+            return $rows[0]['qr_code'];
+        }
+        return null;
+    }
+
     public function insert($mascotaObj)
     {
         $sql = "INSERT INTO Mascotas (id_tipo, nombre, foto, estado, estado_adopcion) 
