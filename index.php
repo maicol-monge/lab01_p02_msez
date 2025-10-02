@@ -1,18 +1,35 @@
 <?php
-//define("RUTA", "http://localhost/lab01_p02_msez/");
-define("RUTA", "http://localhost/CICLO8_Desarrollo_Web_Multiplataforma/lab01_p02_msez/");
+// Construir base URL dinámicamente (soporta HTTP/HTTPS, dominios/túneles)
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$basePath = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/') . '/';
+define("RUTA", $scheme . "://" . $host . $basePath);
 //archivos de configuracion
 require_once "config/rutas.php";
 session_start();
-
-// Redirige al login si no está autenticado y no está accediendo al login
-if (
-    !isset($_SESSION['usuario']) &&
-    (!isset($_GET['url']) || strpos($_GET['url'], 'login') !== 0)
-) {
-    header("Location: " . RUTA . "login");
-    exit;
+// Evita errores de "headers already sent" cuando los controladores hacen redirect
+// al ejecutar después de que comenzó la salida HTML
+if (!ob_get_level()) {
+    ob_start();
 }
+
+// Redirige al login si no está autenticado y no está accediendo a rutas públicas
+$urlActual = $_GET['url'] ?? '';
+if (!isset($_SESSION['usuario'])) {
+    $esPublica = false;
+    if ($urlActual === '' || strpos($urlActual, 'login') === 0) {
+        $esPublica = true;
+    }
+    // Permitir ver info de mascota vía QR sin login
+    if (strpos($urlActual, 'cliente/qr') === 0 || strpos($urlActual, 'cliente/mascota') === 0) {
+        $esPublica = true;
+    }
+    if (!$esPublica) {
+        header("Location: " . RUTA . "login");
+        exit;
+    }
+}
+
 
 //objetos 
 
