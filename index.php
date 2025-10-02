@@ -1,4 +1,5 @@
 <?php
+
 // Construir base URL dinámicamente (soporta HTTP/HTTPS, dominios/túneles)
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
@@ -103,31 +104,48 @@ $contenido = new Contenido();
                 </button>
                 <div class="collapse navbar-collapse" id="collapsibleNavId">
                     <ul class="navbar-nav ms-auto">
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?= RUTA; ?>estadisticas">
-                                <i class="fas fa-chart-pie me-1"></i> Estadísticas
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?= RUTA; ?>mascota">
-                                <i class="fas fa-dog me-1"></i> Mascotas en Adopción
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?= RUTA; ?>tipomascota">
-                                <i class="fas fa-tags me-1"></i> Categorías
-                            </a>
-                        </li>
-                        <?php if (isset($_SESSION['usuario']) && $_SESSION['usuario']['rol'] === 'Administrador'): ?>
-                            <li class="nav-item">
-                                <a class="nav-link" href="<?= RUTA; ?>adopcion">
-                                    <i class="fas fa-heart me-1"></i> Solicitudes de Adopción
-                                </a>
-                            </li>
-                        <?php endif; ?>
                         <?php if (isset($_SESSION['usuario'])): ?>
+                            <?php if ($_SESSION['usuario']['rol'] === 'Administrador'): ?>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="<?= RUTA; ?>estadisticas">
+                                        <i class="fas fa-chart-pie me-1"></i> Estadísticas
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="<?= RUTA; ?>mascota">
+                                        <i class="fas fa-dog me-1"></i> Mascotas (admin)
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="<?= RUTA; ?>tipomascota">
+                                        <i class="fas fa-tags me-1"></i> Categorías
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="<?= RUTA; ?>adopcion">
+                                        <i class="fas fa-heart me-1"></i> Solicitudes de Adopción
+                                    </a>
+                                </li>
+                            <?php else: ?>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="<?= RUTA; ?>cliente">
+                                        <i class="fas fa-paw me-1"></i> Explorar
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="<?= RUTA; ?>cliente/scan">
+                                        <i class="fas fa-qrcode me-1"></i> Escanear QR
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="<?= RUTA; ?>cliente/misSolicitudes">
+                                        <i class="fas fa-clipboard-list me-1"></i> Mis solicitudes
+                                    </a>
+                                </li>
+                            <?php endif; ?>
                             <li class="nav-item">
-                                <span class="nav-link">Hola, <?= $_SESSION['usuario']['nombre']; ?> (<?= $_SESSION['usuario']['rol']; ?>)</span>
+                                <span class="nav-link">Hola, <?= $_SESSION['usuario']['nombre']; ?>
+                                    (<?= $_SESSION['usuario']['rol']; ?>)</span>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="<?= RUTA; ?>login/logout">
@@ -138,6 +156,11 @@ $contenido = new Contenido();
                             <li class="nav-item">
                                 <a class="nav-link" href="<?= RUTA; ?>login">
                                     <i class="fas fa-sign-in-alt me-1"></i> Iniciar sesión
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="<?= RUTA; ?>login/registrar">
+                                    <i class="fas fa-user-plus me-1"></i> Registrarse
                                 </a>
                             </li>
                         <?php endif; ?>

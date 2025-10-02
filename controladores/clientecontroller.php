@@ -36,6 +36,13 @@ class clientecontroller
         require 'vistas/cliente/mascota.php';
     }
 
+    // Página de confirmación de adopción cuando proviene de un QR con ID
+    public function confirmar($id)
+    {
+        $mascota = $this->mascotaModel->getById($id);
+        require 'vistas/cliente/confirmar.php';
+    }
+
     // Permite abrir por token QR: /cliente/qr?code=...
     public function qr()
     {
@@ -45,7 +52,9 @@ class clientecontroller
             exit;
         }
         if (ctype_digit($code)) {
-            $mascota = $this->mascotaModel->getById((int) $code);
+            // Si es un ID, redirigimos a confirmar adopción
+            header('Location: ' . RUTA . 'cliente/confirmar/' . $code);
+            exit;
         } else {
             $mascota = $this->mascotaModel->getByQrCode($code);
         }
