@@ -353,7 +353,9 @@ class EstadisticasController
     // Imagen: Embudo del proceso (JPGraph)
     public function grafico_funnel()
     {
-        [$labels, $values] = $this->datosEmbudo();
+        $anio = isset($_GET['anio']) ? (int)$_GET['anio'] : null;
+        $mes  = isset($_GET['mes'])  ? (int)$_GET['mes']  : null;
+        [$labels, $values] = $this->datosEmbudo($anio, $mes);
         $png = $this->generarImagenFunnel($labels, $values);
         if ($png === false) { http_response_code(500); echo 'No se pudo generar el gráfico.'; return; }
         header('Content-Type: image/png');
@@ -380,7 +382,9 @@ class EstadisticasController
     // Exportación PDF: Embudo
     public function exportar_pdf_funnel()
     {
-        [$labels, $values] = $this->datosEmbudo();
+        $anio = isset($_GET['anio']) ? (int)$_GET['anio'] : null;
+        $mes  = isset($_GET['mes'])  ? (int)$_GET['mes']  : null;
+        [$labels, $values] = $this->datosEmbudo($anio, $mes);
         $total = array_sum($values);
         $png = $this->generarImagenFunnel($labels, $values);
         if ($png === false) { http_response_code(500); echo 'No se pudo generar el gráfico.'; return; }
@@ -391,6 +395,8 @@ class EstadisticasController
             $rows .= '<tr><td>'.htmlspecialchars($l).'</td><td style="text-align:right">'.number_format($v).'</td><td style="text-align:right">'.$pct.'%</td></tr>';
         }
         $imgDataUri = 'data:image/png;base64,'.base64_encode($png);
+        $periodoTxt = '';
+        if ($anio) { $periodoTxt = 'Año ' . $anio . ($mes ? (' · Mes ' . $mes) : ''); }
         $html = '<html><head><meta charset="utf-8"><style>
         body{font-family:Arial,Helvetica,sans-serif;font-size:12px;margin:22px;color:#222}
         h1{font-size:18px;margin:0 0 6px} .muted{color:#666;margin-bottom:12px}
@@ -398,14 +404,15 @@ class EstadisticasController
         .imgbox{border:1px solid #eee;padding:6px;border-radius:6px}
         </style></head><body>
         <h1>Embudo del Proceso de Adopción</h1>
-        <div class="muted">Generado: '.date('Y-m-d H:i').'</div>
+        <div class="muted">'.($periodoTxt ? ($periodoTxt.' · ') : '').'Generado: '.date('Y-m-d H:i').'</div>
         <div class="imgbox"><img src="'.$imgDataUri.'" style="width:100%;max-width:760px;height:auto"/></div>
         <h2 style="font-size:16px;margin-top:14px">Resumen</h2>
         <table><thead><tr><th>Estado</th><th style="text-align:right">Cantidad</th><th style="text-align:right">% del total</th></tr></thead>
         <tbody>'.$rows.'<tr><th>Total</th><th style="text-align:right">'.number_format($total).'</th><th></th></tr></tbody></table>
         </body></html>';
 
-        $this->renderPdfOrHtml($html, 'embudo_adopcion.pdf');
+        $suf = $anio ? ('_'.$anio.($mes ? '_'.$mes : '')) : '';
+        $this->renderPdfOrHtml($html, 'embudo_adopcion'.$suf.'.pdf');
     }
 
     // Exportación PDF: Aprobadas vs Rechazadas por mes
@@ -445,9 +452,9 @@ class EstadisticasController
     }
 
     // Helpers de datos
-    private function datosEmbudo(): array
+    private function datosEmbudo(?int $anio = null, ?int $mes = null): array
     {
-        $map = $this->model->obtenerConteoAdopcionesPorEstado();
+        $map = $this->model->obtenerConteoAdopcionesPorEstado($anio, $mes);
         $labels = ['Pendiente','Aprobada','Rechazada','Finalizada'];
         $values = array_map(fn($k)=> (int)($map[$k] ?? 0), $labels);
         return [$labels, $values];
@@ -705,7 +712,9 @@ class EstadisticasController
     // ===== Datos-only endpoints =====
     public function exportar_datos_funnel_pdf()
     {
-        [$labels, $values] = $this->datosEmbudo();
+        $anio = isset($_GET['anio']) ? (int)$_GET['anio'] : null;
+        $mes  = isset($_GET['mes'])  ? (int)$_GET['mes']  : null;
+        [$labels, $values] = $this->datosEmbudo($anio, $mes);
         $total = array_sum($values);
         $rows = '';
         if ($total > 0) {
@@ -717,16 +726,21 @@ class EstadisticasController
         } else {
             $rows = '<tr><td colspan="3">Sin datos.</td></tr>';
         }
-        $html = '<html><head><meta charset="utf-8"><style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#222;margin:22px}h1{font-size:18px;margin:0 0 6px}.muted{color:#666;margin-bottom:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #e5e5e5;padding:6px 8px}th{background:#f6f8fa}</style></head><body>'
-              . '<h1>Reporte de datos — Embudo</h1><div class="muted">Generado: '.date('Y-m-d H:i').'</div>'
+      $periodoTxt = '';
+      if ($anio) { $periodoTxt = 'Año ' . $anio . ($mes ? (' · Mes ' . $mes) : ''); }
+      $html = '<html><head><meta charset="utf-8"><style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#222;margin:22px}h1{font-size:18px;margin:0 0 6px}.muted{color:#666;margin-bottom:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #e5e5e5;padding:6px 8px}th{background:#f6f8fa}</style></head><body>'
+          . '<h1>Reporte de datos — Embudo</h1><div class="muted">'.($periodoTxt ? ($periodoTxt.' · ') : '').'Generado: '.date('Y-m-d H:i').'</div>'
               . '<table><thead><tr><th>Estado</th><th style="text-align:right">Cantidad</th><th style="text-align:right">% del total</th></tr></thead><tbody>'
               . $rows . '</tbody></table></body></html>';
-        $this->renderPdfOrHtml($html, 'datos_embudo.pdf');
+      $suf = $anio ? ('_'.$anio.($mes ? '_'.$mes : '')) : '';
+      $this->renderPdfOrHtml($html, 'datos_embudo'.$suf.'.pdf');
     }
 
     public function exportar_datos_funnel_excel()
     {
-        [$labels, $values] = $this->datosEmbudo();
+        $anio = isset($_GET['anio']) ? (int)$_GET['anio'] : null;
+        $mes  = isset($_GET['mes'])  ? (int)$_GET['mes']  : null;
+        [$labels, $values] = $this->datosEmbudo($anio, $mes);
         $total = array_sum($values);
         $rows = [['Estado','Cantidad','% del total']];
         foreach ($labels as $i=>$l) {
@@ -734,7 +748,8 @@ class EstadisticasController
             $rows[] = [$l, $v, $total>0 ? ($v/$total) : 0];
         }
         $rows[] = ['Total', $total, ''];
-        $this->renderExcelXml('datos_embudo.xls', [ ['name'=>'Embudo','rows'=>$rows] ]);
+        $suf = $anio ? ('_'.$anio.($mes ? '_'.$mes : '')) : '';
+        $this->renderExcelXml('datos_embudo'.$suf.'.xls', [ ['name'=>'Embudo','rows'=>$rows], ['name'=>'Filtros','rows'=>[['Año',$anio?:'Todos'],['Mes',$mes?:'Todos']]] ]);
     }
 
     public function exportar_datos_apr_rech_pdf()

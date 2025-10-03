@@ -405,6 +405,27 @@
                         <i class="fas fa-filter text-primary me-2"></i>
                         Embudo del Proceso de Adopción
                     </h4>
+                    <div class="row g-2 align-items-center mb-2">
+                        <div class="col-6 col-md-4">
+                            <?php $anioActual = (int)date('Y'); ?>
+                            <select id="selAnioFunnel" class="form-select form-select-sm">
+                                <option value="">Todos los años</option>
+                                <?php for ($y=$anioActual; $y>=$anioActual-4; $y--): ?>
+                                    <option value="<?= $y; ?>"><?= $y; ?></option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <select id="selMesFunnel" class="form-select form-select-sm">
+                                <option value="">Todos los meses</option>
+                                <?php
+                                $meses = ['01'=>'Enero','02'=>'Febrero','03'=>'Marzo','04'=>'Abril','05'=>'Mayo','06'=>'Junio','07'=>'Julio','08'=>'Agosto','09'=>'Septiembre','10'=>'Octubre','11'=>'Noviembre','12'=>'Diciembre'];
+                                foreach ($meses as $k=>$v): ?>
+                                    <option value="<?= (int)$k; ?>"><?= $v; ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
                     <div class="text-center">
                         <img id="imgFunnel" class="img-fluid" alt="Embudo de adopción"
                              src="<?= RUTA; ?>estadisticas/grafico_funnel">
@@ -451,9 +472,18 @@
     </div>
 
     <!-- Formularios ocultos para exportación de los nuevos gráficos -->
-    <form id="formPdfFunnel" action="<?= RUTA; ?>estadisticas/exportar_pdf_funnel" method="get" target="_blank" style="display:none"></form>
-    <form id="formDatosPdfFunnel" action="<?= RUTA; ?>estadisticas/exportar_datos_funnel_pdf" method="get" target="_blank" style="display:none"></form>
-    <form id="formDatosExcelFunnel" action="<?= RUTA; ?>estadisticas/exportar_datos_funnel_excel" method="get" target="_blank" style="display:none"></form>
+    <form id="formPdfFunnel" action="<?= RUTA; ?>estadisticas/exportar_pdf_funnel" method="get" target="_blank" style="display:none">
+        <input type="hidden" name="anio" id="funnelAnio">
+        <input type="hidden" name="mes" id="funnelMes">
+    </form>
+    <form id="formDatosPdfFunnel" action="<?= RUTA; ?>estadisticas/exportar_datos_funnel_pdf" method="get" target="_blank" style="display:none">
+        <input type="hidden" name="anio" id="funnelAnioDatosPdf">
+        <input type="hidden" name="mes" id="funnelMesDatosPdf">
+    </form>
+    <form id="formDatosExcelFunnel" action="<?= RUTA; ?>estadisticas/exportar_datos_funnel_excel" method="get" target="_blank" style="display:none">
+        <input type="hidden" name="anio" id="funnelAnioDatosXls">
+        <input type="hidden" name="mes" id="funnelMesDatosXls">
+    </form>
     <form id="formPdfAprRech" action="<?= RUTA; ?>estadisticas/exportar_pdf_apr_rech" method="get" target="_blank" style="display:none">
         <input type="hidden" name="anio" id="pdfAnio" value="<?= (int)date('Y'); ?>">
     </form>
@@ -466,7 +496,35 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', function(){
+        const selAnioF = document.getElementById('selAnioFunnel');
+        const selMesF  = document.getElementById('selMesFunnel');
+        const imgFunnel = document.getElementById('imgFunnel');
+
+        function updateFunnelImgAndForms(){
+            const anio = selAnioF?.value || '';
+            const mes  = selMesF?.value  || '';
+            const base = '<?= RUTA; ?>estadisticas/grafico_funnel';
+            const qs = [];
+            if (anio) qs.push('anio='+encodeURIComponent(anio));
+            if (mes)  qs.push('mes='+encodeURIComponent(mes));
+            imgFunnel.src = qs.length ? (base+'?'+qs.join('&')) : base;
+            // sincronizar formularios ocultos
+            const f1a = document.getElementById('funnelAnio');
+            const f1m = document.getElementById('funnelMes');
+            const f2a = document.getElementById('funnelAnioDatosPdf');
+            const f2m = document.getElementById('funnelMesDatosPdf');
+            const f3a = document.getElementById('funnelAnioDatosXls');
+            const f3m = document.getElementById('funnelMesDatosXls');
+            [f1a,f2a,f3a].forEach(el=>{ if(el) el.value = anio; });
+            [f1m,f2m,f3m].forEach(el=>{ if(el) el.value = mes; });
+        }
+
+        selAnioF?.addEventListener('change', updateFunnelImgAndForms);
+        selMesF?.addEventListener('change', updateFunnelImgAndForms);
+        updateFunnelImgAndForms();
+
         document.getElementById('btnPdfFunnel')?.addEventListener('click', function(){
+            updateFunnelImgAndForms();
             document.getElementById('formPdfFunnel').submit();
         });
         const selAnio = document.getElementById('selAnio');

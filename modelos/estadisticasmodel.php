@@ -128,14 +128,21 @@ class EstadisticasModel
         return $this->cn->consulta($sql, $params);
     }
 
-    // Conteo de adopciones por estado (para embudo)
-    public function obtenerConteoAdopcionesPorEstado(): array
+    // Conteo de adopciones por estado (para embudo) con filtros opcionales de año y mes
+    public function obtenerConteoAdopcionesPorEstado(?int $anio = null, ?int $mes = null): array
     {
+        $params = [];
+        $wheres = [];
+        if (!empty($anio) && $anio > 0) { $wheres[] = 'YEAR(fecha_adopcion) = :anio'; $params[':anio'] = $anio; }
+        if (!empty($mes) && $mes > 0 && $mes <= 12) { $wheres[] = 'MONTH(fecha_adopcion) = :mes'; $params[':mes'] = $mes; }
+        $whereSql = count($wheres) ? ('WHERE '.implode(' AND ', $wheres)) : '';
+
         $sql = "SELECT estado, COUNT(*) AS cantidad
                 FROM Adopciones
+                $whereSql
                 GROUP BY estado
                 ORDER BY FIELD(estado,'Pendiente','Aprobada','Rechazada','Finalizada')";
-        $rows = $this->cn->consulta($sql);
+        $rows = $this->cn->consulta($sql, $params);
         $out = ['Pendiente'=>0,'Aprobada'=>0,'Rechazada'=>0,'Finalizada'=>0];
         foreach ($rows as $r) { $out[$r['estado']] = (int)$r['cantidad']; }
         return $out;
