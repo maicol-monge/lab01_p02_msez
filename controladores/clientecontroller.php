@@ -51,14 +51,35 @@ class clientecontroller
             header('Location: ' . RUTA . 'cliente');
             exit;
         }
-        if (ctype_digit($code)) {
-            // Si es un ID, ir directo a confirmar adopción (vía front controller)
-            header('Location: ' . RUTA . 'index.php?url=cliente/confirmar/' . $code);
-            exit;
-        } else {
-            $mascota = $this->mascotaModel->getByQrCode($code);
+        // Normalizar: decodificar y quitar base si viene como URL completa
+        $decoded = urldecode($code);
+        if (strpos($decoded, RUTA) === 0) {
+            $decoded = substr($decoded, strlen(RUTA));
         }
-        require 'vistas/cliente/mascota.php';
+
+        // Si el parámetro es un ID numérico
+        if (ctype_digit($decoded)) {
+            // ID de mascota directo
+            header('Location: ' . RUTA . 'index.php?url=cliente/confirmar/' . $decoded);
+            exit;
+        }
+
+        // Si viene la ruta/nombre del PNG del QR: assets/qrs/mascota_4.png
+        if (preg_match('/mascota_(\d+)\.png$/i', $decoded, $m)) {
+            header('Location: ' . RUTA . 'index.php?url=cliente/confirmar/' . $m[1]);
+            exit;
+        }
+
+        // Intentar resolver por token/valor de qr_code almacenado
+        $mascota = $this->mascotaModel->getByQrCode($decoded);
+        if ($mascota && method_exists($mascota, 'getIdmascota')) {
+            header('Location: ' . RUTA . 'index.php?url=cliente/confirmar/' . $mascota->getIdmascota());
+            exit;
+        }
+
+        // Si no se encontró, llevar al listado del cliente con aviso
+        header('Location: ' . RUTA . 'cliente?msg=qr_no_valido');
+        exit;
     }
 
     public function misSolicitudes()
