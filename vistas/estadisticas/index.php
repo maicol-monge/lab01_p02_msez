@@ -410,7 +410,9 @@
                              src="<?= RUTA; ?>estadisticas/grafico_funnel">
                     </div>
                     <div class="d-grid gap-2 mt-3">
-                        <button id="btnPdfFunnel" class="btn btn-danger" type="button">Embudo: PDF</button>
+                        <button id="btnPdfFunnel" class="btn btn-danger" type="button">Embudo: PDF (gráfico)</button>
+                        <button id="btnDatosPdfFunnel" class="btn btn-outline-danger" type="button">Embudo: PDF (datos)</button>
+                        <button id="btnDatosExcelFunnel" class="btn btn-success" type="button">Embudo: Excel (datos)</button>
                     </div>
                 </div>
             </div>
@@ -440,6 +442,8 @@
                     </div>
                     <div class="d-grid gap-2 mt-3">
                         <button id="btnPdfAprRech" class="btn btn-danger" type="button">Gráfico mensual: PDF</button>
+                        <button id="btnDatosPdfAprRech" class="btn btn-outline-danger" type="button">Datos mensuales: PDF</button>
+                        <button id="btnDatosExcelAprRech" class="btn btn-success" type="button">Datos mensuales: Excel</button>
                     </div>
                 </div>
             </div>
@@ -448,8 +452,16 @@
 
     <!-- Formularios ocultos para exportación de los nuevos gráficos -->
     <form id="formPdfFunnel" action="<?= RUTA; ?>estadisticas/exportar_pdf_funnel" method="get" target="_blank" style="display:none"></form>
+    <form id="formDatosPdfFunnel" action="<?= RUTA; ?>estadisticas/exportar_datos_funnel_pdf" method="get" target="_blank" style="display:none"></form>
+    <form id="formDatosExcelFunnel" action="<?= RUTA; ?>estadisticas/exportar_datos_funnel_excel" method="get" target="_blank" style="display:none"></form>
     <form id="formPdfAprRech" action="<?= RUTA; ?>estadisticas/exportar_pdf_apr_rech" method="get" target="_blank" style="display:none">
         <input type="hidden" name="anio" id="pdfAnio" value="<?= (int)date('Y'); ?>">
+    </form>
+    <form id="formDatosPdfAprRech" action="<?= RUTA; ?>estadisticas/exportar_datos_apr_rech_pdf" method="get" target="_blank" style="display:none">
+        <input type="hidden" name="anio" id="datosPdfAnio" value="<?= (int)date('Y'); ?>">
+    </form>
+    <form id="formDatosExcelAprRech" action="<?= RUTA; ?>estadisticas/exportar_datos_apr_rech_excel" method="get" target="_blank" style="display:none">
+        <input type="hidden" name="anio" id="datosExcelAnio" value="<?= (int)date('Y'); ?>">
     </form>
 
     <script>
@@ -460,13 +472,29 @@
         const selAnio = document.getElementById('selAnio');
         const imgAprRech = document.getElementById('imgAprRech');
         const pdfAnio = document.getElementById('pdfAnio');
+        const datosPdfAnio = document.getElementById('datosPdfAnio');
+        const datosExcelAnio = document.getElementById('datosExcelAnio');
         selAnio?.addEventListener('change', function(){
             const y = selAnio.value || new Date().getFullYear();
             imgAprRech.src = '<?= RUTA; ?>estadisticas/grafico_apr_rech_mensual?anio=' + encodeURIComponent(y);
             if (pdfAnio) pdfAnio.value = y;
+            if (datosPdfAnio) datosPdfAnio.value = y;
+            if (datosExcelAnio) datosExcelAnio.value = y;
         });
         document.getElementById('btnPdfAprRech')?.addEventListener('click', function(){
             document.getElementById('formPdfAprRech').submit();
+        });
+        document.getElementById('btnDatosPdfAprRech')?.addEventListener('click', function(){
+            document.getElementById('formDatosPdfAprRech').submit();
+        });
+        document.getElementById('btnDatosExcelAprRech')?.addEventListener('click', function(){
+            document.getElementById('formDatosExcelAprRech').submit();
+        });
+        document.getElementById('btnDatosPdfFunnel')?.addEventListener('click', function(){
+            document.getElementById('formDatosPdfFunnel').submit();
+        });
+        document.getElementById('btnDatosExcelFunnel')?.addEventListener('click', function(){
+            document.getElementById('formDatosExcelFunnel').submit();
         });
     });
     </script>
