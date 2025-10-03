@@ -85,7 +85,8 @@ if (isset($_GET['url'])) {
     $earlyRoutes = [
         'login' => ['autenticar', 'logout'],
         'cliente' => ['adoptar', 'qr'],
-        'adopcion' => ['aprobar', 'rechazar', 'scan'],
+        // En adopción solo las acciones que hacen header() inmediato o entregan archivos
+        'adopcion' => ['aprobar', 'rechazar'],
     ];
     if (isset($earlyRoutes[$paginaEarly]) && in_array($accionEarly, $earlyRoutes[$paginaEarly], true)) {
         require_once $contenido->obtenerContenido($paginaEarly);

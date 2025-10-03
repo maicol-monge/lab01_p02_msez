@@ -8,6 +8,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Ticket #<?= htmlspecialchars($detalle['id_adopcion']) ?></title>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         /* Ticket 80mm (~304px) compatible */
         :root {
@@ -101,7 +102,7 @@
 <body>
     <div class="ticket">
         <div class="center">
-            <img class="logo" src="<?= RUTA ?>img/logo.png" alt="Refugio" />
+            <img class="logo" src="<?= RUTA ?>img/logo.png" alt="Refugio" crossorigin="anonymous" />
             <div class="bold">Refugio Amigos Fieles</div>
             <div class="xs">RUC 00000000000</div>
             <div class="xs">Dirección: Av. Siempre Viva 123</div>
@@ -125,15 +126,15 @@
         <div class="small">Tipo: <?= htmlspecialchars($detalle['tipo_nombre']) ?></div>
         <?php if (!empty($detalle['mascota_foto'])): ?>
             <div class="center mt-2"><img src="<?= htmlspecialchars($detalle['mascota_foto']) ?>" alt="Mascota"
-                    style="max-width:120px;max-height:120px;object-fit:cover" /></div>
+                    crossorigin="anonymous" style="max-width:120px;max-height:120px;object-fit:cover" /></div>
         <?php endif; ?>
         <div class="line"></div>
 
         <div class="center small">Escanea para consultar la adopción</div>
         <div class="qr mt-1">
             <?php $qrUrl = RUTA . 'index.php?url=adopcion/ticket/' . urlencode($detalle['id_adopcion']);
-            $qrImg = 'https://quickchart.io/qr?text=' . urlencode($qrUrl) . '&margin=1&size=160'; ?>
-            <img src="<?= $qrImg ?>" alt="QR" />
+            $qrImg = 'https://quickchart.io/qr?text=' . urlencode($qrUrl) . '&margin=1&size=160&format=png'; ?>
+            <img id="qrImage" src="<?= $qrImg ?>" alt="QR" crossorigin="anonymous" />
         </div>
 
         <div class="center xs mt-3">Gracias por adoptar y cambiar una vida</div>
@@ -145,30 +146,23 @@
     </div>
 
     <script>
-        function downloadTicket() {
+        async function downloadTicket() {
             const el = document.querySelector('.ticket');
-            // Canvas a partir del elemento (simple): usamos SVG foreignObject para no depender de librerías
-            const xml = new XMLSerializer().serializeToString(el);
-            const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${el.offsetWidth}' height='${el.offsetHeight}'>` +
-                `<foreignObject width='100%' height='100%'>${xml}</foreignObject></svg>`;
-            const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(svgBlob);
-            const img = new Image();
-            img.onload = function () {
-                const c = document.createElement('canvas');
-                c.width = img.width; c.height = img.height;
-                const ctx = c.getContext('2d');
-                ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-                ctx.drawImage(img, 0, 0);
-                URL.revokeObjectURL(url);
-                c.toBlob(b => {
+            // Asegura que imágenes externas no "tainten" el canvas usando CORS
+            try {
+                const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+                canvas.toBlob((blob) => {
+                    if (!blob) { alert('No se pudo generar la imagen.'); return; }
                     const a = document.createElement('a');
-                    a.href = URL.createObjectURL(b);
+                    a.href = URL.createObjectURL(blob);
                     a.download = 'ticket-<?= htmlspecialchars($detalle['id_adopcion']) ?>.png';
+                    document.body.appendChild(a);
                     a.click();
-                });
-            };
-            img.src = url;
+                    a.remove();
+                }, 'image/png');
+            } catch (e) {
+                alert('No se pudo descargar el ticket: ' + e.message);
+            }
         }
     </script>
 </body>
