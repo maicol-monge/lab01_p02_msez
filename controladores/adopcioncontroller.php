@@ -95,7 +95,7 @@ class adopcioncontroller
         }
         $id = $_GET['id'] ?? '';
         if (ctype_digit($id)) {
-            header('Location: ' . RUTA . 'adopcion/ticket/' . $id);
+            header('Location: ' . RUTA . 'index.php?url=adopcion/ticket/' . $id);
             exit;
         }
         require 'vistas/adopcion/scan.php';
