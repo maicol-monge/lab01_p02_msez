@@ -184,31 +184,34 @@ class EstadisticasController
             'filtroTipo' => $filtroTipo, 'filtroEstado' => $filtroEstado, 'tipoVista' => $tipoVista
         ]);
 
-        $filename = 'reporte_distribucion_' . date('Ymd_His') . '.csv';
-        header('Content-Type: text/csv; charset=UTF-8');
-        header('Content-Disposition: attachment; filename="'.$filename.'"');
-        echo "\xEF\xBB\xBF"; // UTF-8 BOM
-        echo "sep=,\r\n";
-        $out = fopen('php://output', 'w');
-
-        fputcsv($out, ['Reporte','Generado']);
-        fputcsv($out, ['Distribución de mascotas', date('Y-m-d H:i')]);
-        fputcsv($out, ['Filtros', ($filtroTipo==='todos'?'Todos los tipos':"Tipo: $filtroTipo").' · '.($filtroEstado==='todos'?'Todos los estados':"Estado: $filtroEstado").' · Vista: '.$tipoVista]);
-        fputcsv($out, []);
-        fputcsv($out, ['Segmento','Cantidad','% del total']);
-
-        if ($total > 0) {
-            foreach ($labels as $i=>$label) {
-                $val = (int)$values[$i];
-                $pct = $total ? round(($val/$total)*100, 2) : 0;
-                fputcsv($out, [$label, $val, $pct]);
-            }
-            fputcsv($out, ['Total', $total, '']);
-        } else {
-            fputcsv($out, ['Sin datos con los filtros aplicados', '', '']);
+        // Hoja 1: Resumen con fórmulas
+        $rowsResumen = [
+            ['Reporte','Distribución de mascotas'],
+            ['Generado', date('Y-m-d H:i')],
+            ['Filtros', ($filtroTipo==='todos'?'Todos los tipos':"Tipo: $filtroTipo").' · '.($filtroEstado==='todos'?'Todos los estados':"Estado: $filtroEstado").' · Vista: '.$tipoVista],
+            [],
+            ['Segmento','Cantidad','% del total']
+        ];
+        $filaInicio = count($rowsResumen) + 1; // 1-based
+        foreach ($labels as $i=>$label) {
+            // PCT formula uses row index
+            $rowIdx = $filaInicio + $i;
+            $rowsResumen[] = [
+                $label,
+                (int)$values[$i],
+                $total > 0 ? '=RC[-1]/R'.($filaInicio+count($labels)).'C[-1]' : 0
+            ];
         }
-        fclose($out);
-        exit;
+        $rowsResumen[] = ['Total', $total, ''];
+
+        // Hoja 2: Datos crudos
+        $rowsData = [['Etiqueta','Valor']];
+        foreach ($labels as $i=>$l) { $rowsData[] = [$l, (int)$values[$i]]; }
+
+        $this->renderExcelXml('reporte_distribucion_'.date('Ymd_His').'.xls', [
+            ['name' => 'Resumen', 'rows' => $rowsResumen],
+            ['name' => 'Datos',    'rows' => $rowsData],
+        ]);
     }
 
 
@@ -652,6 +655,119 @@ class EstadisticasController
         header('Content-Type: text/html; charset=utf-8');
         echo $html;
         exit;
+    }
+
+    // ===== Excel (SpreadsheetML) helper =====
+    private function renderExcelXml(string $filename, array $sheets)
+    {
+        $xml  = "<?xml version=\"1.0\"?>\n";
+        $xml .= "<?mso-application progid=\"Excel.Sheet\"?>\n";
+        $xml .= "<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\" xmlns:o=\"urn:schemas-microsoft-com:office:office\" xmlns:x=\"urn:schemas-microsoft-com:office:excel\" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\" xmlns:html=\"http://www.w3.org/TR/REC-html40\">";
+        $xml .= "<Styles>"
+              .   "<Style ss:ID=\"sHeader\"><Font ss:Bold=\"1\"/><Interior ss:Color=\"#F6F8FA\" ss:Pattern=\"Solid\"/></Style>"
+              .   "<Style ss:ID=\"sRight\"><Alignment ss:Horizontal=\"Right\"/></Style>"
+              .   "<Style ss:ID=\"sPercent\"><NumberFormat ss:Format=\"0.00%\"/></Style>"
+              . "</Styles>";
+        foreach ($sheets as $sheet) {
+            $name = $this->excelSanitizeSheetName($sheet['name'] ?? 'Hoja');
+            $rows = $sheet['rows'] ?? [];
+            $xml .= "<Worksheet ss:Name=\"".htmlspecialchars($name)."\"><Table>";
+            foreach ($rows as $row) {
+                $xml .= "<Row>";
+                foreach ($row as $cell) {
+                    $isFormula = is_string($cell) && strlen($cell) > 0 && $cell[0] === '=';
+                    $type = $isFormula || is_numeric($cell) ? 'Number' : 'String';
+                    $attr = $isFormula ? " ss:Formula=\"".htmlspecialchars($cell)."\"" : '';
+                    $style = '';
+                    if ($isFormula && (stripos($cell,'/R')!==false || stripos($cell,'%')!==false)) { $style = " ss:StyleID=\"sPercent\""; }
+                    $data = $isFormula ? 0 : htmlspecialchars((string)$cell);
+                    $xml .= "<Cell$attr$style><Data ss:Type=\"$type\">$data</Data></Cell>";
+                }
+                $xml .= "</Row>";
+            }
+            $xml .= "</Table></Worksheet>";
+        }
+        $xml .= "</Workbook>";
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment; filename="'.$filename.'"');
+        echo $xml;
+        exit;
+    }
+
+    private function excelSanitizeSheetName(string $name): string
+    {
+        $name = preg_replace('/[\\\\:\\/\\?\\*\\[\\]]/', ' ', $name);
+        $name = trim($name);
+        if ($name === '') $name = 'Hoja';
+        return substr($name, 0, 31);
+    }
+
+    // ===== Datos-only endpoints =====
+    public function exportar_datos_funnel_pdf()
+    {
+        [$labels, $values] = $this->datosEmbudo();
+        $total = array_sum($values);
+        $rows = '';
+        if ($total > 0) {
+            foreach ($labels as $i=>$l) {
+                $v = (int)$values[$i]; $pct = round($v * 100 / $total, 2);
+                $rows .= '<tr><td>'.htmlspecialchars($l).'</td><td style="text-align:right">'.number_format($v).'</td><td style="text-align:right">'.$pct.'%</td></tr>';
+            }
+            $rows .= '<tr><th>Total</th><th style="text-align:right">'.number_format($total).'</th><th></th></tr>';
+        } else {
+            $rows = '<tr><td colspan="3">Sin datos.</td></tr>';
+        }
+        $html = '<html><head><meta charset="utf-8"><style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#222;margin:22px}h1{font-size:18px;margin:0 0 6px}.muted{color:#666;margin-bottom:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #e5e5e5;padding:6px 8px}th{background:#f6f8fa}</style></head><body>'
+              . '<h1>Reporte de datos — Embudo</h1><div class="muted">Generado: '.date('Y-m-d H:i').'</div>'
+              . '<table><thead><tr><th>Estado</th><th style="text-align:right">Cantidad</th><th style="text-align:right">% del total</th></tr></thead><tbody>'
+              . $rows . '</tbody></table></body></html>';
+        $this->renderPdfOrHtml($html, 'datos_embudo.pdf');
+    }
+
+    public function exportar_datos_funnel_excel()
+    {
+        [$labels, $values] = $this->datosEmbudo();
+        $total = array_sum($values);
+        $rows = [['Estado','Cantidad','% del total']];
+        foreach ($labels as $i=>$l) {
+            $v = (int)$values[$i];
+            $rows[] = [$l, $v, $total>0 ? ($v/$total) : 0];
+        }
+        $rows[] = ['Total', $total, ''];
+        $this->renderExcelXml('datos_embudo.xls', [ ['name'=>'Embudo','rows'=>$rows] ]);
+    }
+
+    public function exportar_datos_apr_rech_pdf()
+    {
+        $anio = isset($_GET['anio']) ? (int)$_GET['anio'] : (int)date('Y');
+        [$mesLabels, $serieA, $serieR, $titulo] = $this->datosAprobRechMes($anio);
+        $rows = '';
+        for ($i=0; $i<count($mesLabels); $i++) {
+            $a = (int)$serieA[$i]; $r = (int)$serieR[$i]; $t = $a + $r;
+            $pa = $t ? round($a*100/$t,2) : 0; $pr = $t ? round($r*100/$t,2) : 0;
+            $rows .= '<tr><td>'.$mesLabels[$i].'</td><td style="text-align:right">'.number_format($a).'</td><td style="text-align:right">'.number_format($r).'</td><td style="text-align:right">'.$pa.'%</td><td style="text-align:right">'.$pr.'%</td></tr>';
+        }
+        $html = '<html><head><meta charset="utf-8"><style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#222;margin:22px}h1{font-size:18px;margin:0 0 6px}.muted{color:#666;margin-bottom:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #e5e5e5;padding:6px 8px}th{background:#f6f8fa}</style></head><body>'
+              . '<h1>Datos — Aprobadas vs Rechazadas por mes</h1><div class="muted">'.$titulo.' · Generado: '.date('Y-m-d H:i').'</div>'
+              . '<table><thead><tr><th>Mes</th><th style="text-align:right">Aprobadas</th><th style="text-align:right">Rechazadas</th><th style="text-align:right">Tasa Aprob.</th><th style="text-align:right">Tasa Rech.</th></tr></thead><tbody>'
+              . $rows . '</tbody></table></body></html>';
+        $this->renderPdfOrHtml($html, 'datos_aprobadas_rechazadas_'.$anio.'.pdf');
+    }
+
+    public function exportar_datos_apr_rech_excel()
+    {
+        $anio = isset($_GET['anio']) ? (int)$_GET['anio'] : (int)date('Y');
+        [$mesLabels, $serieA, $serieR, $titulo] = $this->datosAprobRechMes($anio);
+        $rows = [['Mes','Aprobadas','Rechazadas','Total','Tasa Aprob.','Tasa Rech.']];
+        for ($i=0; $i<count($mesLabels); $i++) {
+            $a = (int)$serieA[$i]; $r = (int)$serieR[$i]; $t = $a + $r;
+            $rows[] = [$mesLabels[$i], $a, $r, $t, $t?($a/$t):0, $t?($r/$t):0];
+        }
+        $resumen = [ ['Título'], [$titulo] ];
+        $this->renderExcelXml('datos_aprobadas_rechazadas_'.$anio.'.xls', [
+            ['name'=>'Mensual','rows'=>$rows],
+            ['name'=>'Resumen','rows'=>$resumen],
+        ]);
     }
 }
 ?>
