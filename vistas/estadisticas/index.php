@@ -395,6 +395,82 @@
     });
     </script>
 
+    <!-- Nuevos gráficos con JPGraph -->
+    <div class="row mt-5">
+        <!-- Embudo del Proceso -->
+        <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h4 class="card-title mb-3">
+                        <i class="fas fa-filter text-primary me-2"></i>
+                        Embudo del Proceso de Adopción
+                    </h4>
+                    <div class="text-center">
+                        <img id="imgFunnel" class="img-fluid" alt="Embudo de adopción"
+                             src="<?= RUTA; ?>estadisticas/grafico_funnel">
+                    </div>
+                    <div class="d-grid gap-2 mt-3">
+                        <button id="btnPdfFunnel" class="btn btn-danger" type="button">Embudo: PDF</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aprobadas vs Rechazadas por Mes -->
+        <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h4 class="card-title mb-0">
+                            <i class="fas fa-chart-column text-primary me-2"></i>
+                            Aprobadas vs Rechazadas por Mes
+                        </h4>
+                        <div class="ms-3" style="min-width:140px">
+                            <?php $anioActual = (int)date('Y'); ?>
+                            <select id="selAnio" class="form-select form-select-sm">
+                                <?php for ($y=$anioActual; $y>=$anioActual-4; $y--): ?>
+                                    <option value="<?= $y; ?>"><?= $y; ?></option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <img id="imgAprRech" class="img-fluid" alt="Aprobadas vs Rechazadas"
+                             src="<?= RUTA; ?>estadisticas/grafico_apr_rech_mensual?anio=<?= (int)date('Y'); ?>">
+                    </div>
+                    <div class="d-grid gap-2 mt-3">
+                        <button id="btnPdfAprRech" class="btn btn-danger" type="button">Gráfico mensual: PDF</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formularios ocultos para exportación de los nuevos gráficos -->
+    <form id="formPdfFunnel" action="<?= RUTA; ?>estadisticas/exportar_pdf_funnel" method="get" target="_blank" style="display:none"></form>
+    <form id="formPdfAprRech" action="<?= RUTA; ?>estadisticas/exportar_pdf_apr_rech" method="get" target="_blank" style="display:none">
+        <input type="hidden" name="anio" id="pdfAnio" value="<?= (int)date('Y'); ?>">
+    </form>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function(){
+        document.getElementById('btnPdfFunnel')?.addEventListener('click', function(){
+            document.getElementById('formPdfFunnel').submit();
+        });
+        const selAnio = document.getElementById('selAnio');
+        const imgAprRech = document.getElementById('imgAprRech');
+        const pdfAnio = document.getElementById('pdfAnio');
+        selAnio?.addEventListener('change', function(){
+            const y = selAnio.value || new Date().getFullYear();
+            imgAprRech.src = '<?= RUTA; ?>estadisticas/grafico_apr_rech_mensual?anio=' + encodeURIComponent(y);
+            if (pdfAnio) pdfAnio.value = y;
+        });
+        document.getElementById('btnPdfAprRech')?.addEventListener('click', function(){
+            document.getElementById('formPdfAprRech').submit();
+        });
+    });
+    </script>
+
     <!-- Llamado a la Acción -->
     <div class="row">
         <div class="col-12">

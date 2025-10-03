@@ -127,5 +127,44 @@ class EstadisticasModel
                 ORDER BY t.nombre";
         return $this->cn->consulta($sql, $params);
     }
+
+    // Conteo de adopciones por estado (para embudo)
+    public function obtenerConteoAdopcionesPorEstado(): array
+    {
+        $sql = "SELECT estado, COUNT(*) AS cantidad
+                FROM Adopciones
+                GROUP BY estado
+                ORDER BY FIELD(estado,'Pendiente','Aprobada','Rechazada','Finalizada')";
+        $rows = $this->cn->consulta($sql);
+        $out = ['Pendiente'=>0,'Aprobada'=>0,'Rechazada'=>0,'Finalizada'=>0];
+        foreach ($rows as $r) { $out[$r['estado']] = (int)$r['cantidad']; }
+        return $out;
+    }
+
+    // Aprobadas vs Rechazadas por mes (año actual por defecto)
+    public function obtenerAprobadasRechazadasPorMes(?int $anio = null): array
+    {
+        $anio = $anio ?: (int)date('Y');
+        $params = [':anio' => $anio];
+
+        $sql = "SELECT MONTH(fecha_adopcion) AS mes,
+                       SUM(CASE WHEN estado='Aprobada'  THEN 1 ELSE 0 END) AS aprobadas,
+                       SUM(CASE WHEN estado='Rechazada' THEN 1 ELSE 0 END) AS rechazadas
+                FROM Adopciones
+                WHERE YEAR(fecha_adopcion) = :anio
+                GROUP BY MONTH(fecha_adopcion)
+                ORDER BY mes";
+        $rows = $this->cn->consulta($sql, $params);
+
+        // Normalizar a 12 meses
+        $aprob = array_fill(1, 12, 0);
+        $rech  = array_fill(1, 12, 0);
+        foreach ($rows as $r) {
+            $m = (int)$r['mes'];
+            $aprob[$m] = (int)$r['aprobadas'];
+            $rech[$m]  = (int)$r['rechazadas'];
+        }
+        return ['anio'=>$anio,'aprobadas'=>$aprob,'rechazadas'=>$rech];
+    }
 }
 ?>

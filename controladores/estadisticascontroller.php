@@ -344,5 +344,314 @@ class EstadisticasController
 
         return [$labels, $values, $titulo, $total];
     }
+
+    // No se usa salida bufferizada; el enrutador despacha estas rutas antes del layout
+
+    // Imagen: Embudo del proceso (JPGraph)
+    public function grafico_funnel()
+    {
+        [$labels, $values] = $this->datosEmbudo();
+        $png = $this->generarImagenFunnel($labels, $values);
+        if ($png === false) { http_response_code(500); echo 'No se pudo generar el gráfico.'; return; }
+        header('Content-Type: image/png');
+        header('Content-Length: '.strlen($png));
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        echo $png;
+        exit;
+    }
+
+    // Imagen: Columnas agrupadas Aprobadas vs Rechazadas por mes (JPGraph)
+    public function grafico_apr_rech_mensual()
+    {
+        $anio = isset($_GET['anio']) ? (int)$_GET['anio'] : (int)date('Y');
+        [$mesLabels, $serieAprob, $serieRech, $titulo] = $this->datosAprobRechMes($anio);
+        $png = $this->generarImagenColsAprobRech($mesLabels, $serieAprob, $serieRech, $titulo);
+        if ($png === false) { http_response_code(500); echo 'No se pudo generar el gráfico.'; return; }
+        header('Content-Type: image/png');
+        header('Content-Length: '.strlen($png));
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        echo $png;
+        exit;
+    }
+
+    // Exportación PDF: Embudo
+    public function exportar_pdf_funnel()
+    {
+        [$labels, $values] = $this->datosEmbudo();
+        $total = array_sum($values);
+        $png = $this->generarImagenFunnel($labels, $values);
+        if ($png === false) { http_response_code(500); echo 'No se pudo generar el gráfico.'; return; }
+
+        $rows = '';
+        foreach ($labels as $i=>$l) {
+            $v = (int)$values[$i]; $pct = $total ? round($v*100/$total,1):0;
+            $rows .= '<tr><td>'.htmlspecialchars($l).'</td><td style="text-align:right">'.number_format($v).'</td><td style="text-align:right">'.$pct.'%</td></tr>';
+        }
+        $imgDataUri = 'data:image/png;base64,'.base64_encode($png);
+        $html = '<html><head><meta charset="utf-8"><style>
+        body{font-family:Arial,Helvetica,sans-serif;font-size:12px;margin:22px;color:#222}
+        h1{font-size:18px;margin:0 0 6px} .muted{color:#666;margin-bottom:12px}
+        table{width:100%;border-collapse:collapse;margin-top:10px} th,td{border:1px solid #e5e5e5;padding:6px 8px} th{background:#f6f8fa}
+        .imgbox{border:1px solid #eee;padding:6px;border-radius:6px}
+        </style></head><body>
+        <h1>Embudo del Proceso de Adopción</h1>
+        <div class="muted">Generado: '.date('Y-m-d H:i').'</div>
+        <div class="imgbox"><img src="'.$imgDataUri.'" style="width:100%;max-width:760px;height:auto"/></div>
+        <h2 style="font-size:16px;margin-top:14px">Resumen</h2>
+        <table><thead><tr><th>Estado</th><th style="text-align:right">Cantidad</th><th style="text-align:right">% del total</th></tr></thead>
+        <tbody>'.$rows.'<tr><th>Total</th><th style="text-align:right">'.number_format($total).'</th><th></th></tr></tbody></table>
+        </body></html>';
+
+        $this->renderPdfOrHtml($html, 'embudo_adopcion.pdf');
+    }
+
+    // Exportación PDF: Aprobadas vs Rechazadas por mes
+    public function exportar_pdf_apr_rech()
+    {
+        $anio = isset($_GET['anio']) ? (int)$_GET['anio'] : (int)date('Y');
+        [$mesLabels, $serieAprob, $serieRech, $titulo] = $this->datosAprobRechMes($anio);
+        $png = $this->generarImagenColsAprobRech($mesLabels, $serieAprob, $serieRech, $titulo);
+        if ($png === false) { http_response_code(500); echo 'No se pudo generar el gráfico.'; return; }
+
+        $imgDataUri = 'data:image/png;base64,'.base64_encode($png);
+
+        // Tabla de datos
+        $rows = '';
+        $totalA = array_sum($serieAprob);
+        $totalR = array_sum($serieRech);
+        foreach ($mesLabels as $i=>$m) {
+            $a = $serieAprob[$i]; $r = $serieRech[$i];
+            $rows .= '<tr><td>'.$m.'</td><td style="text-align:right">'.number_format($a).'</td><td style="text-align:right">'.number_format($r).'</td></tr>';
+        }
+
+        $html = '<html><head><meta charset="utf-8"><style>
+        body{font-family:Arial,Helvetica,sans-serif;font-size:12px;margin:22px;color:#222}
+        h1{font-size:18px;margin:0 0 6px} .muted{color:#666;margin-bottom:12px}
+        table{width:100%;border-collapse:collapse;margin-top:10px} th,td{border:1px solid #e5e5e5;padding:6px 8px} th{background:#f6f8fa}
+        .imgbox{border:1px solid #eee;padding:6px;border-radius:6px}
+        </style></head><body>
+        <h1>Aprobadas vs Rechazadas por Mes</h1>
+        <div class="muted">'.$titulo.' · Generado: '.date('Y-m-d H:i').'</div>
+        <div class="imgbox"><img src="'.$imgDataUri.'" style="width:100%;max-width:900px;height:auto"/></div>
+        <h2 style="font-size:16px;margin-top:14px">Resumen</h2>
+        <table><thead><tr><th>Mes</th><th style="text-align:right">Aprobadas</th><th style="text-align:right">Rechazadas</th></tr></thead>
+        <tbody>'.$rows.'<tr><th>Total</th><th style="text-align:right">'.number_format($totalA).'</th><th style="text-align:right">'.number_format($totalR).'</th></tr></tbody></table>
+        </body></html>';
+
+        $this->renderPdfOrHtml($html, 'aprobadas_vs_rechazadas_'.$anio.'.pdf');
+    }
+
+    // Helpers de datos
+    private function datosEmbudo(): array
+    {
+        $map = $this->model->obtenerConteoAdopcionesPorEstado();
+        $labels = ['Pendiente','Aprobada','Rechazada','Finalizada'];
+        $values = array_map(fn($k)=> (int)($map[$k] ?? 0), $labels);
+        return [$labels, $values];
+    }
+
+    private function datosAprobRechMes(int $anio): array
+    {
+        $data = $this->model->obtenerAprobadasRechazadasPorMes($anio);
+        $mesLabels = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        // Reindexar a 0..11
+        $serieAprob = array_values($data['aprobadas']);
+        $serieRech  = array_values($data['rechazadas']);
+        $titulo = 'Año '.$anio;
+        return [$mesLabels, $serieAprob, $serieRech, $titulo];
+    }
+
+    // Helpers de imagen JPGraph
+    private function cargarJpGraph(): bool
+    {
+        $base = __DIR__ . '/../vendor/jpgraph/src';
+        if (file_exists($base.'/jpgraph.php')) {
+            require_once $base.'/jpgraph.php';
+            return true;
+        }
+        // Intento alternativo (si estuviera global)
+        if (@include_once 'jpgraph/jpgraph.php') return true;
+        return class_exists('Graph');
+    }
+
+    private function generarImagenFunnel(array $labels, array $values)
+    {
+        $total = array_sum($values);
+        if ($total <= 0) return false;
+        if (!$this->cargarJpGraph()) return $this->fallbackFunnelPng($labels, $values);
+
+        // Preferir funnel nativo si existe
+        $base = __DIR__ . '/../vendor/jpgraph/src';
+        if (file_exists($base.'/jpgraph_funnel.php')) {
+            require_once $base.'/jpgraph_funnel.php';
+        }
+        $hasFunnel = class_exists('FunnelPlot');
+
+        if ($hasFunnel) {
+            $g = new \Graph(760, 420, 'auto');
+            $g->SetScale('textlin');
+            $g->title->Set('Embudo del Proceso de Adopción');
+
+            $fp = new \FunnelPlot($values);
+            $fp->SetCenter(0.45, 0.5);
+            $fp->SetLegends($labels);
+            $fp->SetColor('white');
+            $fp->SetFillColor('orange');
+            $g->Add($fp);
+
+            ob_start(); $g->Stroke(); return ob_get_clean();
+        } else {
+            // Horizontal bars simulando embudo
+            require_once $base.'/jpgraph_bar.php';
+            $g = new \Graph(760, 420, 'auto');
+            $g->SetScale('textlin');
+            $g->SetMargin(120, 40, 40, 60);
+            $g->Set90AndMargin(140, 30, 40, 60);
+            $g->title->Set('Embudo del Proceso de Adopción');
+            $g->xaxis->SetTickLabels($labels);
+            $g->xaxis->SetLabelAlign('right','center','right');
+            $g->yaxis->HideZeroLabel();
+
+            $b = new \BarPlot($values);
+            $b->SetFillGradient('#5DADE2', '#2E86C1', GRAD_HOR);
+            $b->SetColor('#1F618D');
+            $b->value->Show();
+            $b->value->SetFormat('%d');
+            $b->SetWidth(0.8);
+
+            $g->Add($b);
+            ob_start(); $g->Stroke(); return ob_get_clean();
+        }
+    }
+
+    private function generarImagenColsAprobRech(array $mesLabels, array $serieA, array $serieR, string $titulo)
+    {
+        $sum = array_sum($serieA) + array_sum($serieR);
+        // Si no hay datos, devolver una imagen simple informativa en lugar de fallar
+        if ($sum <= 0) {
+            return $this->pngNoData('Sin datos para '.$titulo);
+        }
+        if (!$this->cargarJpGraph()) return $this->fallbackColsPng($mesLabels, $serieA, $serieR, $titulo);
+
+        $base = __DIR__ . '/../vendor/jpgraph/src';
+        require_once $base.'/jpgraph_bar.php';
+
+        $g = new \Graph(920, 460, 'auto');
+        $g->SetScale('textlin');
+        $g->SetMargin(60, 30, 40, 80);
+        $g->title->Set('Aprobadas vs Rechazadas por Mes — '.$titulo);
+        $g->xaxis->SetTickLabels($mesLabels);
+
+        $bA = new \BarPlot($serieA);
+        $bA->SetLegend('Aprobadas');
+        $bA->SetFillColor('#28a745');
+        $bA->SetColor('#1e7e34');
+
+        $bR = new \BarPlot($serieR);
+        $bR->SetLegend('Rechazadas');
+        $bR->SetFillColor('#dc3545');
+        $bR->SetColor('#a71d2a');
+
+        $gb = new \GroupBarPlot([$bA, $bR]);
+        $g->Add($gb);
+        $g->legend->SetPos(0.5,0.98,'center','bottom');
+
+        ob_start(); $g->Stroke(); return ob_get_clean();
+    }
+
+    private function pngNoData(string $texto, int $w = 920, int $h = 460)
+    {
+        if (!function_exists('imagecreatetruecolor')) return false;
+        $im = imagecreatetruecolor($w, $h);
+        $white = imagecolorallocate($im, 255,255,255);
+        $gray  = imagecolorallocate($im, 120,120,120);
+        imagefill($im, 0, 0, $white);
+        // Marco suave
+        $light = imagecolorallocate($im, 230,230,230);
+        imagerectangle($im, 10, 10, $w-10, $h-10, $light);
+        // Texto centrado aproximado
+        $msg1 = 'Aprobadas vs Rechazadas por Mes';
+        $msg2 = $texto;
+        imagestring($im, 5, (int)($w/2 - strlen($msg1)*4), (int)($h/2 - 12), $msg1, $gray);
+        imagestring($im, 5, (int)($w/2 - strlen($msg2)*4), (int)($h/2 + 8),  $msg2, $gray);
+        ob_start(); imagepng($im); $png = ob_get_clean(); imagedestroy($im); return $png;
+    }
+
+    private function fallbackFunnelPng(array $labels, array $values)
+    {
+        // GD simple horizontal bars
+        if (!function_exists('imagecreatetruecolor')) return false;
+        $w = 760; $h = 420; $left = 220; $right = 40; $top = 40; $rowH = 60;
+        $im = imagecreatetruecolor($w,$h);
+        $white = imagecolorallocate($im,255,255,255);
+        $black = imagecolorallocate($im,30,30,30);
+        $green = imagecolorallocate($im,46,134,193);
+        imagefill($im,0,0,$white);
+        imagestring($im,5,10,10,'Embudo del Proceso de Adopción',$black);
+
+        $max = max(1, max($values));
+        foreach ($values as $i=>$v) {
+            $y = $top + 30 + $i*$rowH;
+            $len = (int)(($w-$left-$right) * ($v/$max));
+            imagefilledrectangle($im, $left, $y, $left+$len, $y+24, $green);
+            imagestring($im,4,10,$y, $labels[$i], $black);
+            imagestring($im,4,$left+$len+6,$y, (string)$v, $black);
+        }
+        ob_start(); imagepng($im); $png = ob_get_clean(); imagedestroy($im); return $png;
+    }
+
+    private function fallbackColsPng(array $mesLabels, array $serieA, array $serieR, string $titulo)
+    {
+        if (!function_exists('imagecreatetruecolor')) return false;
+        $w=920;$h=460;$im=imagecreatetruecolor($w,$h);
+        $white=imagecolorallocate($im,255,255,255);
+        $black=imagecolorallocate($im,30,30,30);
+        $green=imagecolorallocate($im,40,167,69);
+        $red=imagecolorallocate($im,220,53,69);
+        imagefill($im,0,0,$white);
+        imagestring($im,5,10,10,'Aprobadas vs Rechazadas — '.$titulo,$black);
+
+        $left=60;$bottom=$h-60;$top=50;$right=$w-30;
+        $cols = count($mesLabels); $groupW = ($right-$left)/$cols;
+        $barW = max(6, (int)($groupW/3));
+        $max = max(1, max($serieA)+max($serieR)); // simple max
+
+        // eje x labels
+        foreach ($mesLabels as $i=>$m) {
+            $x = (int)($left + $i*$groupW + $groupW/2);
+            imagestring($im,3,$x-10,$bottom+6,$m,$black);
+        }
+        // barras
+        foreach ($mesLabels as $i=>$_) {
+            $x0 = (int)($left + $i*$groupW + $groupW/2);
+            $a = $serieA[$i]; $r = $serieR[$i];
+            $ha = (int)(($a/$max)*($bottom-$top));
+            $hr = (int)(($r/$max)*($bottom-$top));
+            imagefilledrectangle($im, $x0-$barW-2, $bottom-$ha, $x0-2, $bottom, $green);
+            imagefilledrectangle($im, $x0+2,            $bottom-$hr, $x0+$barW+2, $bottom, $red);
+        }
+        ob_start(); imagepng($im); $png=ob_get_clean(); imagedestroy($im); return $png;
+    }
+
+    private function renderPdfOrHtml(string $html, string $filename)
+    {
+        $autoload = __DIR__ . '/../vendor/autoload.php';
+        if (file_exists($autoload)) require_once $autoload;
+
+        if (class_exists('Dompdf\\Dompdf')) {
+            $dompdf = new \Dompdf\Dompdf();
+            $dompdf->loadHtml($html,'UTF-8');
+            $dompdf->setPaper('A4','portrait');
+            $dompdf->render();
+
+            // Descargar como archivo (como ya lo haces)
+            $dompdf->stream($filename, ['Attachment' => true]);
+            exit;
+        }
+
+        header('Content-Type: text/html; charset=utf-8');
+        echo $html;
+        exit;
+    }
 }
 ?>

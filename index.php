@@ -43,13 +43,19 @@ if (isset($_GET['url'])) {
     $accionEarly = $datosEarly[1] ?? 'index';
     $rawEndpoints = [
         'estadisticas' => [
+            // existentes
             'exportar_pdf',
             'exportar_datos_pdf',
             'exportar_excel',
             'exportar_mascotas_usuario_pdf',
             'exportar_mascotas_usuario_csv',
             'exportar_adopciones_pdf',
-            'exportar_adopciones_csv'
+            'exportar_adopciones_csv',
+            // NUEVOS: gráficos JPGraph y sus PDFs deben evitar el layout
+            'grafico_funnel',
+            'grafico_apr_rech_mensual',
+            'exportar_pdf_funnel',
+            'exportar_pdf_apr_rech',
         ],
         // Ticket debe renderizar sin layout para impresión directa
         'adopcion' => ['ticket'],
